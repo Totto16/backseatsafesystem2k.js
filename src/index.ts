@@ -1,16 +1,23 @@
 import { runProgramm } from "./main"
 import * as terminal from "./terminal"
+import { DrawHandle } from "./terminal"
+
+function getDrawHandle(uninitialized = false): DrawHandle {
+    return [0, 1].map((_) => {
+        const canvasElement: HTMLCanvasElement | null =
+            document.querySelector("canvas#console")
+        if (canvasElement === null) {
+            throw new Error("No canvas element was found!")
+        }
+        if (uninitialized) {
+            canvasElement.height = terminal.HEIGHT
+            canvasElement.width = terminal.WIDTH
+        }
+        return canvasElement
+    }) as DrawHandle
+}
 
 function start() {
-    const canvasElement: HTMLCanvasElement | null =
-        document.querySelector("canvas#console")
-    if (canvasElement === null) {
-        throw new Error("No canvas element was found!")
-    }
-
-    canvasElement.height = terminal.HEIGHT
-    canvasElement.width = terminal.WIDTH
-
     const inputElement: HTMLInputElement | null = document.querySelector(
         "input#backseat-file"
     )
@@ -57,13 +64,8 @@ function onChooseFile(_event: Event) {
         throw new Error("not a backset file")
     }
 
-    const canvasElement: HTMLCanvasElement | null =
-        document.querySelector("canvas#console")
-    if (canvasElement === null) {
-        throw new Error("No canvas element was found!")
-    }
     file.arrayBuffer().then((content) => {
-        runProgramm(canvasElement, new Uint8Array(content))
+        runProgramm(getDrawHandle(true), new Uint8ClampedArray(content))
     })
 }
 

@@ -8,12 +8,12 @@ export type Word = number
 
 export const bits = Byte.bits * SIZE
 
-export function fromBEBytes(slice: Uint8Array): Word {
+export function fromBEBytes(slice: Uint8ClampedArray): Word {
     return unpack(slice, { bits, signed: false, be: true }, 0, true)
 }
 
 export function saveAsBEBytes(
-    buffer: Uint8Array,
+    buffer: Uint8ClampedArray,
     address: Address,
     value: Word
 ): void {

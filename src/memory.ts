@@ -11,20 +11,20 @@ import { Opcode } from "./opcodes"
 export type Tuple<A, B> = [A, B]
 
 export class Memory {
-    private data: Uint8Array
+    private data: Uint8ClampedArray
     static SIZE: number = 16 * 1024 * 1024
 
     constructor() {
-        this.data = new Uint8Array(Memory.SIZE)
+        this.data = new Uint8ClampedArray(Memory.SIZE)
     }
 
-    get getData() {
+    getData(): Uint8ClampedArray {
         return this.data
     }
 
     readOpcode(address: Address): Tuple<Opcode, Instruction.Instruction> {
         console.assert(address % Instruction.SIZE == 0)
-        let slice: Uint8Array = new Uint8Array(
+        let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this.data.buffer,
             address,
             Instruction.SIZE
@@ -35,7 +35,7 @@ export class Memory {
 
     readData(address: Address): Word.Word {
         console.assert(address % Word.SIZE == 0)
-        let slice: Uint8Array = new Uint8Array(
+        let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this.data.buffer,
             address,
             Word.SIZE
@@ -45,7 +45,7 @@ export class Memory {
 
     readHalfWord(address: Address): HalfWord.HalfWord {
         console.assert(address % HalfWord.SIZE == 0)
-        let slice: Uint8Array = new Uint8Array(
+        let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this.data.buffer,
             address,
             HalfWord.SIZE
@@ -54,7 +54,7 @@ export class Memory {
     }
 
     readByte(address: Address): Byte.Byte {
-        let slice: Uint8Array = new Uint8Array(
+        let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this.data.buffer,
             address,
             HalfWord.SIZE

@@ -1,9 +1,20 @@
-export function runProgramm(
-    canvas: HTMLCanvasElement,
-    fileContent: Uint8Array
-) {
+import { DrawHandle } from "./terminal"
+
+export function runProgramm(handle: DrawHandle, fileContent: Uint8ClampedArray) {
     return
 }
+
+export interface Size2D {
+    width: number
+    height: number
+}
+
+export const SCREEN_SIZE: Size2D = {
+    width: 1280,
+    height: 720,
+}
+
+export const OPCODE_LENGTH: number = 16
 
 /* mod address_constants;
 mod cursor;

@@ -1,147 +1,115 @@
-export const WIDTH: number = 480;
-export const HEIGHT: number = WIDTH / 4 * 3;
+import { match } from "assert"
+import { type } from "os"
+import {
+    SECOND_FRAMEBUFFER_START,
+    FIRST_FRAMEBUFFER_START,
+    FRAMEBUFFER_SIZE,
+    Address,
+} from "./address_constants"
+import { SCREEN_SIZE } from "./main"
+import { Memory } from "./memory"
+import { DrawHandle } from "./terminal"
 
+export const WIDTH: number = 480
+export const HEIGHT: number = (WIDTH / 4) * 3
 
-/* #[cfg(feature = "graphics")]
-use crate::SCREEN_SIZE;
-#[cfg(feature = "graphics")]
-use raylib::{
-    ffi::RenderTexture,
-    prelude::{RaylibDraw, RaylibDrawHandle},
-    texture::{RaylibTexture2D, RenderTexture2D},
-};
+export interface BasicDisplay {
+    swap: () => void
+    is_first_framebuffer_visible: () => boolean
 
-use crate::{address_constants, memory::Memory, Address};
-
-pub trait Display {
-    type Handle;
-    type Thread;
-
-    fn swap(&mut self);
-    fn is_first_framebuffer_visible(&self) -> bool;
-
-    #[cfg(feature = "graphics")]
-    fn render(&mut self, memory: &mut Memory, handle: &mut RaylibDrawHandle);
-
-    fn invisible_framebuffer_address(&self) -> Address {
-        match self.is_first_framebuffer_visible() {
-            true => address_constants::SECOND_FRAMEBUFFER_START,
-            false => address_constants::FIRST_FRAMEBUFFER_START,
-        }
-    }
+    render: (memory: Memory, handle: DrawHandle) => void
+    invisible_framebuffer_address: () => Address
 }
 
-pub struct MockDisplay {
-    first_framebuffer_visible: bool,
-}
+export class MockDisplay implements BasicDisplay {
+    first_framebuffer_visible: boolean
 
-impl MockDisplay {
-    pub fn new(_: &mut <Self as Display>::Handle, _: &<Self as Display>::Thread) -> Self {
-        Self {
-            first_framebuffer_visible: true,
-        }
-    }
-}
-
-impl Display for MockDisplay {
-    type Handle = ();
-    type Thread = ();
-
-    fn swap(&mut self) {
-        self.first_framebuffer_visible = !self.first_framebuffer_visible
+    constructor() {
+        this.first_framebuffer_visible = true
     }
 
-    fn is_first_framebuffer_visible(&self) -> bool {
-        self.first_framebuffer_visible
+    invisible_framebuffer_address(): Address {
+        return this.is_first_framebuffer_visible()
+            ? SECOND_FRAMEBUFFER_START
+            : FIRST_FRAMEBUFFER_START
     }
 
-    #[cfg(feature = "graphics")]
-    fn render(&mut self, _: &mut Memory, _: &mut RaylibDrawHandle) {
+    swap() {
+        this.first_framebuffer_visible = !this.first_framebuffer_visible
+    }
+
+    is_first_framebuffer_visible(): boolean {
+        return this.first_framebuffer_visible
+    }
+
+    render(_memory: Memory, _handle: DrawHandle) {
         // do nothing
     }
 }
 
-pub struct DisplayImplementation {
-    first_framebuffer_visible: bool,
+export const FONT_SIZE = 10
 
-    #[cfg(feature = "graphics")]
-    texture: RenderTexture2D,
+export class DisplayImplementation extends MockDisplay {
+    font: FontFace
+
+    constructor(handle: DrawHandle) {
+        super()
+
+        handle[0].style.display = "unset !important;"
+        handle[1].style.display = "none !important;"
+
+        const fontFace = new FontFace(
+            "myFont",
+            "url(resources/CozetteVector.ttf)"
+        )
+        fontFace.load().then((font: FontFace) => {
+            this.font = font
+            ;[0, 1].map((i) => {
+                const ctx = handle[i].getContext("2d")
+                if (ctx !== null) {
+                    ctx.font = `${FONT_SIZE}px ${font.family}`
+                }
+            })
+        })
+        this.font = fontFace
+    }
 }
 
-#[cfg(feature = "graphics")]
-impl DisplayImplementation {
-    pub fn new(handle: &mut <Self as Display>::Handle, thread: &<Self as Display>::Thread) -> Self {
-        let mut texture = handle
-            .load_render_texture(thread, WIDTH as u32, HEIGHT as u32)
-            .unwrap();
-        let render_texture: &mut RenderTexture = texture.as_mut();
-        render_texture.texture.format =
-            raylib::ffi::PixelFormat::PIXELFORMAT_PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 as _;
-        Self {
-            first_framebuffer_visible: true,
-            texture,
+export class Display extends DisplayImplementation {
+    render(memory: Memory, handle: DrawHandle) {
+        // TODO, tint color would be necessary to implement using canvas tint mode, but thats not necessary here, since it's white
+        let tint_color = {
+            r: 0xff,
+            g: 0xff,
+            b: 0xff,
+            a: 0xff,
         }
-    }
-}
 
-#[cfg(feature = "graphics")]
-impl Display for DisplayImplementation {
-    type Handle = raylib::RaylibHandle;
-    type Thread = raylib::RaylibThread;
+        const scale = SCREEN_SIZE.height / HEIGHT
+        const framebuffer_start = this.is_first_framebuffer_visible()
+            ? FIRST_FRAMEBUFFER_START
+            : SECOND_FRAMEBUFFER_START
 
-    fn render(&mut self, memory: &mut Memory, handle: &mut RaylibDrawHandle) {
-        let tint_color = raylib::ffi::Color {
-            r: 0xFF,
-            g: 0xFF,
-            b: 0xFF,
-            a: 0xFF,
-        };
-        let scale = SCREEN_SIZE.height as f32 / HEIGHT as f32;
-        let framebuffer_start = match self.is_first_framebuffer_visible() {
-            true => address_constants::FIRST_FRAMEBUFFER_START,
-            false => address_constants::SECOND_FRAMEBUFFER_START,
-        } as usize;
-        self.texture.update_texture(
-            &memory.data()[framebuffer_start..][..address_constants::FRAMEBUFFER_SIZE],
-        );
-        handle.draw_texture_ex(
-            &self.texture,
-            raylib::ffi::Vector2 { x: 0.0, y: 0.0 },
-            0.0,
-            scale,
-            tint_color,
-        );
+        const ctx = this.getCurrentCtx(handle)
+
+        const imageData = new ImageData(
+            new Uint8ClampedArray(
+                memory.getData(),
+                framebuffer_start,
+                FRAMEBUFFER_SIZE
+            ),
+            WIDTH,
+            HEIGHT
+        )
+        ctx.putImageData(imageData, 0, 0)
     }
 
-    fn swap(&mut self) {
-        self.first_framebuffer_visible = !self.first_framebuffer_visible;
-    }
-
-    fn is_first_framebuffer_visible(&self) -> bool {
-        self.first_framebuffer_visible
-    }
-}
-
-#[cfg(not(feature = "graphics"))]
-impl DisplayImplementation {
-    pub fn new(handle: &mut <Self as Display>::Handle, thread: &<Self as Display>::Thread) -> Self {
-        DisplayImplementation {
-            first_framebuffer_visible: true,
+    private getCurrentCtx(handle: DrawHandle): CanvasRenderingContext2D {
+        const index = this.is_first_framebuffer_visible() ? 0 : 1
+        const ctx = handle[index].getContext("2d")
+        if (ctx === null) {
+            throw new Error("Context is undefined!")
         }
+        return ctx
     }
 }
-
-#[cfg(not(feature = "graphics"))]
-impl Display for DisplayImplementation {
-    type Handle = ();
-    type Thread = ();
-
-    fn swap(&mut self) {
-        self.first_framebuffer_visible = !self.first_framebuffer_visible;
-    }
-
-    fn is_first_framebuffer_visible(&self) -> bool {
-        self.first_framebuffer_visible
-    }
-}
- */

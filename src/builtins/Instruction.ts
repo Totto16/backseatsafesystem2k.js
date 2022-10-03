@@ -8,12 +8,12 @@ export type Instruction = number // TODO maybe we ned a class or BigInt here!!
 
 export const bits = Byte.bits * SIZE
 
-export function fromBEBytes(slice: Uint8Array): Instruction {
+export function fromBEBytes(slice: Uint8ClampedArray): Instruction {
     return unpack(slice, { bits, signed: false, be: true }, 0, true)
 }
 
 export function saveAsBEBytes(
-    buffer: Uint8Array,
+    buffer: Uint8ClampedArray,
     address: Address,
     value: Instruction
 ): void {

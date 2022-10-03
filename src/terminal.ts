@@ -1,20 +1,17 @@
 // featuring Tom Hanks
 
-import {Memory} from "./memory"
+import { Memory } from "./memory"
 
-export const WIDTH: number = 80;
-export const HEIGHT: number = 25;
+export const WIDTH: number = 80
+export const HEIGHT: number = 25
 
-
-export type Vector2 = [number,number];
+export type Vector2 = [number, number]
 
 export class Cursor {
     // TODO
 }
 
-export class DrawHandle {
-    // TODO use canvas
-}
+export type DrawHandle = [HTMLCanvasElement, HTMLCanvasElement]
 
 /* 
 export function render(
