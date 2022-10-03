@@ -1,5 +1,12 @@
 // featuring Tom Hanks
 
+import {
+    TERMINAL_CURSOR_POINTER,
+    Address,
+    TERMINAL_BUFFER_START,
+} from "./address_constants"
+import { Cursor } from "./cursor"
+import { Display } from "./display"
 import { Memory } from "./memory"
 
 export const WIDTH: number = 80
@@ -9,64 +16,54 @@ export type Vector2 = [number, number]
 
 export type DrawHandle = [HTMLCanvasElement, HTMLCanvasElement]
 
-/* 
+export interface FontProperties {
+    size: number
+    height: number
+}
+
 export function render(
     memory: Memory,
-    draw_handle: DrawHandle,
-    position: Vector2,
-    font: string,
-    font_height: number,
+    drawHandle: DrawHandle,
+    [x, y]: Vector2,
+    font: FontFace,
+    { size, height }: FontProperties,
     cursor: Cursor,
+    display: Display
 ) {
-    let cursor_pointer = memory.read_data(address_constants::TERMINAL_CURSOR_POINTER) as usize;
-    debug_assert_eq!(address_constants::TERMINAL_BUFFER_START, 0); // to assume we get no overflow
-    let cursor_index = cursor_pointer - address_constants::TERMINAL_BUFFER_START as usize;
-    let cursor_row = cursor_index / WIDTH;
-    let cursor_column = cursor_index % WIDTH;
-    for row in 0..HEIGHT {
+    const cursor_pointer = memory.readData(TERMINAL_CURSOR_POINTER)
+    console.assert(TERMINAL_BUFFER_START == 0) // to assume we get no overflow
+
+    const cursorIndex = cursor_pointer - TERMINAL_BUFFER_START
+    const cursorRow = cursorIndex / WIDTH
+    const cursorColumn = cursorIndex % WIDTH
+
+    for (let row = 0; row < HEIGHT; ++row) {
         // let words = &memory[row * WIDTH..][..WIDTH];
-        let mut string: String = (0..WIDTH)
-            .map(|i| {
-                memory.read_byte(
-                    address_constants::TERMINAL_BUFFER_START + (row * WIDTH + i) as Address,
-                )
-            })
-            .map(|byte| {
-                if !(32..=255).contains(&byte) {
-                    b' '
-                } else {
-                    byte as u8
-                }
-            })
-            .map(|c| c as char)
-            .collect();
-        if row == cursor_row && cursor.visible {
-            let bytes = unsafe { string.as_bytes_mut() };
-            debug_assert!(bytes[cursor_column].is_ascii());
-            bytes[cursor_column] = b'_';
+        const string: string[] = new Array(WIDTH)
+            .fill(undefined)
+            .map((i) =>
+                memory.readByte(TERMINAL_BUFFER_START + (row * WIDTH + i))
+            )
+            .map((byte) =>
+                byte < 32 || byte > 255 ? " " : String.fromCharCode(byte)
+            )
+        if (row == cursorRow && cursor.visible) {
+            string[cursorColumn] = "_"
         }
-        let text = string.as_str();
+        const text: string = string.join("")
 
-        draw_handle.draw_text_ex(
-            font,
-            text,
-            Vector2::new(position.x, position.y + row as f32 * font_height as f32),
-            font_height,
-            5.0,
-            Color::WHITE,
-        );
+        // TODO since it's using two canvases, i get the current active, maybe this is switched out, so I need to get the other one, investigate the usage of multiple canvases,
+        // or better just clear after each frame, that needs a redraw!!
+
+        const ctx = display.getCurrentCtx(drawHandle)
+
+        // TODO get the font in here!
+        ctx.font = `${size}px ${font.family}`
+        ctx.fillStyle = "white"
+
+        // doesn't affect anything
+        // ctx.lineWidth  = 5.0;
+
+        ctx.fillText(text, x, y + row * height)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::{Size, Word};
-
-    use super::*;
-
-    #[test]
-    fn terminal_character_width_divisible_by_word_size() {
-        assert_eq!(WIDTH % Word::SIZE, 0);
-    }
-}
- */

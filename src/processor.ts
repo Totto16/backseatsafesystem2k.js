@@ -1,30 +1,50 @@
-/* #![allow(non_upper_case_globals)]
 
-use std::ops::{Index, IndexMut};
+import * as Word from "./builtins/Word"
+import { Register } from "./main"
 
-use crate::keyboard::KeyState;
-use crate::opcodes::Opcode;
-use crate::periphery::Periphery;
-use crate::{address_constants, Byte, Halfword};
-use crate::{dumper, static_assert};
-use crate::{memory::Memory, Address, Instruction, Word};
-use crate::{Register, Size};
-use bitflags::bitflags;
-use std::collections::HashMap;
 
-const _: () = static_assert(address_constants::ENTRY_POINT as usize % Instruction::SIZE == 0);
+export const NUM_REGISTERS = 256;
+export class Registers {
+    numRegisters: number;
+    register: Register[];
+    constructor(numRegisters : number){
+        this.numRegisters = numRegisters;
+        this.register = new Array(numRegisters).fill(undefined).map(index=>new Register(index))
+    }
 
-pub enum Direction {
+    getRegister(index: number){
+        return this.register[index];
+    }
+
+}
+
+export class  Processor {
+    registers: Registers;
+    cycleCount: number;
+    exitOnHalt: boolean;
+    checkpointCounter: Word.Word;
+    constructor(exitOnHalt: boolean) {
+        this.registers= new Registers(NUM_REGISTERS),
+        this.cycleCount=  0,
+        this.exitOnHalt = exitOnHalt,
+        this.checkpointCounter= 0,
+        
+    }
+}
+
+
+export enum Direction {
     Forwards,
     Backwards,
 }
 
-pub enum ExecutionResult {
+export enum ExecutionResult {
     Error,
     Normal,
     Halted,
 }
 
+/*
 macro_rules! define_flags {
     ($(($flag_name:ident, shift = $shift:literal)),+) => {
         bitflags! {
@@ -80,13 +100,6 @@ pub type CachedInstruction<ConcretePeriphery> =
 
 pub struct InstructionCache<ConcretePeriphery: Periphery> {
     pub cache: Box<[CachedInstruction<ConcretePeriphery>; Memory::SIZE / Instruction::SIZE]>,
-}
-
-pub struct Processor {
-    pub registers: Registers<{ NUM_REGISTERS }>,
-    cycle_count: u64,
-    exit_on_halt: bool,
-    checkpoint_counter: Word,
 }
 
 impl Processor {

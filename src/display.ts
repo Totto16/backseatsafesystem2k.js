@@ -1,5 +1,3 @@
-import { match } from "assert"
-import { type } from "os"
 import {
     SECOND_FRAMEBUFFER_START,
     FIRST_FRAMEBUFFER_START,
@@ -94,7 +92,7 @@ export class Display extends DisplayImplementation {
 
         const imageData = new ImageData(
             new Uint8ClampedArray(
-                memory.getData(),
+                memory.data,
                 framebuffer_start,
                 FRAMEBUFFER_SIZE
             ),
@@ -104,7 +102,7 @@ export class Display extends DisplayImplementation {
         ctx.putImageData(imageData, 0, 0)
     }
 
-    private getCurrentCtx(handle: DrawHandle): CanvasRenderingContext2D {
+    getCurrentCtx(handle: DrawHandle): CanvasRenderingContext2D {
         const index = this.is_first_framebuffer_visible() ? 0 : 1
         const ctx = handle[index].getContext("2d")
         if (ctx === null) {

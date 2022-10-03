@@ -22,8 +22,4 @@ export const STACK_START: Address = SECOND_FRAMEBUFFER_START + FRAMEBUFFER_SIZE
 export const STACK_SIZE: number = 512 * 1024
 export const ENTRY_POINT: Address = STACK_START + STACK_SIZE
 
-
-
-
 export type Address = Word.Word
-

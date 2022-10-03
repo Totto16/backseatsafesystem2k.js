@@ -16,5 +16,4 @@ export class Cursor {
         this.visible = visible
         this.timeOfNextToggle = timeOfNextToggle
     }
-    
 }

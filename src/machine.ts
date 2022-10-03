@@ -1,130 +1,95 @@
-/* use std::time::Instant;
+import * as Instruction from "./builtins/Instruction";
+import { CursorMode } from "./cursor";
+import { Memory } from "./memory";
+import { Periphery } from "./periphery";
+import { Processor } from "./processor";
+import { TERMINAL_CURSOR_MODE } from "./address_constants";
+import { Cursor } from "./cursor";
+import { DrawHandle } from "./terminal";
 
-use crate::{
-    address_constants,
-    cursor::{Cursor, CursorMode},
-    display,
-    memory::Memory,
-    periphery::PeripheryImplementation,
-    processor::{CachedInstruction, ExecutionResult, InstructionCache, Processor},
-    terminal, Address, Instruction, Size,
-};
-
-#[cfg(feature = "graphics")]
-use raylib::prelude::*;
-
-pub struct Machine<Display>
-where
-    Display: display::Display,
-{
-    pub memory: Memory,
-    pub processor: Processor,
-    pub periphery: PeripheryImplementation<Display>,
-    is_halted: bool,
-    instruction_cache: InstructionCache<PeripheryImplementation<Display>>,
+export interface InstructionCache {
+    cache : Array<undefined|Instruction.Instruction>;
 }
 
-impl<Display> Machine<Display>
-where
-    Display: display::Display + 'static,
-{
-    pub fn new(periphery: PeripheryImplementation<Display>, exit_on_halt: bool) -> Self {
-        const MAX_NUM_INSTRUCTIONS: usize = Memory::SIZE / Instruction::SIZE;
-        let cache: Vec<_> = (0..MAX_NUM_INSTRUCTIONS)
-            .map(|_| {
-                Box::new(
-                    |_: &mut Processor,
-                     _: &mut Memory,
-                     _: &mut PeripheryImplementation<Display>| {
-                        ExecutionResult::Error
-                    },
-                ) as CachedInstruction<PeripheryImplementation<Display>>
-            })
-            .collect();
-        Self {
-            memory: Memory::new(),
-            processor: Processor::new(exit_on_halt),
-            periphery,
-            is_halted: false,
-            instruction_cache: InstructionCache {
-                cache: cache
-                    .into_boxed_slice()
-                    .try_into()
-                    .unwrap_or_else(|_| unreachable!()),
-            },
-        }
-    }
+export class Machine {
+    memory: Memory;
+    processor: Processor;
+    periphery: Periphery;
+    isHalted: boolean;
+    instructionCache: InstructionCache;
 
-    pub fn generate_instruction_cache(&mut self) {
-        const MAX_NUM_INSTRUCTIONS: usize = Memory::SIZE / Instruction::SIZE;
-        let cache: Vec<CachedInstruction<PeripheryImplementation<Display>>> = (0
-            ..MAX_NUM_INSTRUCTIONS)
-            .map(|i| {
-                let address = (i * Instruction::SIZE) as Address;
-                match address >= address_constants::ENTRY_POINT {
-                    true => match self.memory.read_opcode(address) {
-                        Ok(opcode) => Processor::generate_cached_instruction(opcode),
-                        Err(_) => Box::new(
-                            |_: &mut Processor,
-                             _: &mut Memory,
-                             _: &mut PeripheryImplementation<Display>| {
-                                ExecutionResult::Error
-                            },
-                        ),
-                    },
-                    false => Box::new(
-                        |_: &mut Processor,
-                         _: &mut Memory,
-                         _: &mut PeripheryImplementation<Display>| {
-                            ExecutionResult::Error
-                        },
-                    ),
-                }
-            })
-            .collect();
-
-        self.instruction_cache.cache = cache
-            .into_boxed_slice()
-            .try_into()
-            .unwrap_or_else(|_| unreachable!());
-    }
-
-    fn update_cursor(&mut self) {
-        let cursor_mode_flag = CursorMode::try_from(
-            self.memory
-                .read_data(address_constants::TERMINAL_CURSOR_MODE),
-        );
-        if let Ok(cursor_mode) = cursor_mode_flag {
-            match cursor_mode {
-                CursorMode::Blinking => {
-                    if Instant::now() >= self.periphery.cursor.time_of_next_toggle {
-                        self.periphery.cursor.visible = !self.periphery.cursor.visible;
-                        self.periphery.cursor.time_of_next_toggle += Cursor::TOGGLE_INTERVAL;
-                    }
-                }
-                CursorMode::Visible => self.periphery.cursor.visible = true,
-                CursorMode::Invisible => self.periphery.cursor.visible = false,
+    constructor(periphery: Periphery, exitOnHalt: bool) {
+        const MAX_NUM_INSTRUCTIONS: number = Memory.SIZE / Instruction.SIZE;
+        const cache : undefined[] = new Array(MAX_NUM_INSTRUCTIONS).fill(undefined);
+        
+            this.memory= new Memory(),
+            this.processor= new Processor(exitOnHalt),
+            this.periphery = periphery,
+            this.isHalted = false,
+            this.instructionCache =  {
+                cache
             }
+    }
+
+    CachedInstructions() {
+        const MAX_NUM_INSTRUCTIONS: number = Memory.SIZE / Instruction.SIZE;
+        const cache = new Array(MAX_NUM_INSTRUCTIONS).fill(undefined)
+            .map((previous, i)=> {
+
+                const address = (i * Instruction.SIZE);
+                if(address >= address_constants.ENTRY_POINT) {
+                    const [opCode, instruction] = this.memory.readOpcode(address);
+                    return Processor.generateCachedInstruction(opCode);
+                }
+                return previous;
+            })
+
+        this.instructionCache.cache = cache;
+    }
+
+    updateCursor() {
+        const cursorModeFlag = this.memory
+                .readData(TERMINAL_CURSOR_MODE) as CursorMode;
+
+        switch (cursorModeFlag) {
+            case CursorMode.Blinking:
+                if (new Date().getTime() >= this.periphery.cursor.timeOfNextToggle) {
+                    this.periphery.cursor.visible = !this.periphery.cursor.visible;
+                    this.periphery.cursor.timeOfNextToggle += Cursor.TOGGLE_INTERVAL;
+                }
+                break;
+                case CursorMode.Visible:
+                    this.periphery.cursor.visible = true;
+                    break;
+        
+                    case CursorMode.Invisible:
+                        this.periphery.cursor.visible = false;
+                        break;
+                
+            default:
+                throw new Error(`unimplemented CursorMode: ${cursorModeFlag}!`)
+                break;
         }
     }
 
-    #[cfg(feature = "graphics")]
-    pub fn render(&mut self, draw_handle: &mut RaylibDrawHandle, font: &Font) {
-        self.periphery.display.render(&mut self.memory, draw_handle);
-        self.update_cursor();
-        terminal::render(
-            &self.memory,
+
+    render(drawHandle: DrawHandle) {
+        this.periphery.display.render(drawHandle);
+        this.updateCursor();
+        terminal.render(
+            this.memory,
             draw_handle,
             Vector2::zero(),
             font,
             20.0,
             &self.periphery.cursor,
+            this.periphery.display
         );
     }
 
-    pub fn execute_next_instruction(&mut self) {
-        use crate::processor::ExecutionResult::*;
-        match self.processor.execute_next_instruction(
+    executeNextInstruction() {
+
+        match self.processor.executeNextInstruction(
             &mut self.memory,
             &mut self.periphery,
             &mut self.instruction_cache,
@@ -275,7 +240,7 @@ mod tests {
             display: MockDisplay::new(&mut (), &()),
             cursor: Cursor {
                 visible: false,
-                time_of_next_toggle: Instant::now() + Cursor::TOGGLE_INTERVAL,
+                timeOfNextToggle: Instant::now() + Cursor::TOGGLE_INTERVAL,
             },
         }
     }

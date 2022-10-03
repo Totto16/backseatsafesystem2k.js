@@ -1,44 +1,39 @@
-/* use crate::{cursor::Cursor, display, keyboard::Keyboard, timer::Timer};
+import { Cursor } from "./cursor"
+import { Display } from "./display"
+import { Keyboard } from "./keyboard"
+import { Timer } from "./timer"
 
-pub trait Periphery {
-    type Handle;
-    type Thread;
+export class Periphery {
+    private _timer: Timer
+    private _keyboard: Keyboard
+    private _display: Display
+    private _cursor: Cursor
 
-    fn timer(&mut self) -> &mut Timer;
-    fn keyboard(&mut self) -> &mut Keyboard;
-    fn display(
-        &mut self,
-    ) -> &mut dyn display::Display<Handle = Self::Handle, Thread = Self::Thread>;
-    fn cursor(&mut self) -> &mut Cursor;
-}
-
-pub struct PeripheryImplementation<Display: display::Display> {
-    pub timer: Timer,
-    pub keyboard: Keyboard,
-    pub display: Display,
-    pub cursor: Cursor,
-}
-
-impl<Display: display::Display> Periphery for PeripheryImplementation<Display> {
-    type Handle = Display::Handle;
-    type Thread = Display::Thread;
-
-    fn timer(&mut self) -> &mut Timer {
-        &mut self.timer
+    constructor(
+        timer: Timer,
+        keyboard: Keyboard,
+        display: Display,
+        cursor: Cursor
+    ) {
+        this._timer = timer
+        this._keyboard = keyboard
+        this._display = display
+        this._cursor = cursor
     }
 
-    fn keyboard(&mut self) -> &mut Keyboard {
-        &mut self.keyboard
+    get timer(): Timer {
+        return this._timer
     }
 
-    fn display(
-        &mut self,
-    ) -> &mut dyn display::Display<Handle = Self::Handle, Thread = Self::Thread> {
-        &mut self.display
+    get keyboard(): Keyboard {
+        return this._keyboard
     }
 
-    fn cursor(&mut self) -> &mut Cursor {
-        &mut self.cursor
+    get display(): Display {
+        return this._display
+    }
+
+    get cursor(): Cursor {
+        return this._cursor
     }
 }
- */
