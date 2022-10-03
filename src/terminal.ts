@@ -16,6 +16,7 @@ export class DrawHandle {
     // TODO use canvas
 }
 
+/* 
 export function render(
     memory: Memory,
     draw_handle: DrawHandle,
@@ -75,3 +76,4 @@ mod tests {
         assert_eq!(WIDTH % Word::SIZE, 0);
     }
 }
+ */

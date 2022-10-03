@@ -1,4 +1,4 @@
-use crate::Word;
+/* use crate::Word;
 
 pub enum KeyState {
     Down,
@@ -20,3 +20,4 @@ impl Keyboard {
         (self.get_keystate_callback)(key)
     }
 }
+ */

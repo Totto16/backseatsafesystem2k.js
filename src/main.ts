@@ -1,4 +1,11 @@
-mod address_constants;
+export function runProgramm(
+    canvas: HTMLCanvasElement,
+    fileContent: Uint8Array
+) {
+    return
+}
+
+/* mod address_constants;
 mod cursor;
 mod display;
 mod dumper;
@@ -10,6 +17,8 @@ mod periphery;
 mod processor;
 mod terminal;
 mod timer;
+
+
 
 use std::{
     cell::RefCell,
@@ -599,3 +608,4 @@ fn draw_clock_frequency(
         Color::WHITE,
     );
 }
+ */

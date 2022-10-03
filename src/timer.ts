@@ -1,4 +1,4 @@
-pub struct Timer {
+/* pub struct Timer {
     get_ms_callback: Box<dyn FnMut() -> u64>,
 }
 
@@ -13,3 +13,4 @@ impl<'a> Timer {
         (self.get_ms_callback)()
     }
 }
+ */

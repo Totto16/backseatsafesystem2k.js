@@ -1,4 +1,4 @@
-use crate::{cursor::Cursor, display, keyboard::Keyboard, timer::Timer};
+/* use crate::{cursor::Cursor, display, keyboard::Keyboard, timer::Timer};
 
 pub trait Periphery {
     type Handle;
@@ -41,3 +41,4 @@ impl<Display: display::Display> Periphery for PeripheryImplementation<Display> {
         &mut self.cursor
     }
 }
+ */

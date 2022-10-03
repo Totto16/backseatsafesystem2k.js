@@ -1,4 +1,4 @@
-use std::time::Instant;
+/* use std::time::Instant;
 
 use crate::{
     address_constants,
@@ -879,7 +879,7 @@ mod tests {
             let target_register = 0x0A.into();
             let lhs: Word = 14;
             let rhs = 12;
-            let expected = lhs.wrapping_sub(rhs + 1 /* carry */);
+            let expected = lhs.wrapping_sub(rhs + 1 /* carry *//*);
         },
         opcodes = &[SubtractWithCarryTargetLhsRhs {
             target: target_register,
@@ -900,7 +900,7 @@ mod tests {
             let target_register = 0x0A.into();
             let lhs: Word = 14;
             let rhs = 13;
-            let expected = lhs.wrapping_sub(rhs + 1 /* carry */);
+            let expected = lhs.wrapping_sub(rhs + 1 /* carry *//*);
         },
         opcodes = &[SubtractWithCarryTargetLhsRhs {
             target: target_register,
@@ -2167,3 +2167,4 @@ mod tests {
         registers_post = [(0.into(), 0), (1.into(), 0)],
     );
 }
+ */

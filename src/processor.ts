@@ -1,4 +1,4 @@
-#![allow(non_upper_case_globals)]
+/* #![allow(non_upper_case_globals)]
 
 use std::ops::{Index, IndexMut};
 
@@ -1393,3 +1393,4 @@ impl Processor {
         );
     }
 }
+ */

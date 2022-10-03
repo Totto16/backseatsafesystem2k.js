@@ -2,12 +2,10 @@
   "name": "backseatsafesystem2k.js",
   "version": "1.0.0",
   "description": "A virtual machine implementation for backseat files",
-  "main": "build/index.js",
   "scripts": {
-    "compile": "tsc",
-    "start": "npm run compile && node .",
-    "dev": "nodemon --watch src/ -e .ts --exec \"npm run start || exit 1\"",
-    "update": "npm-check -u -s"
+    "update": "npm-check -u -s",
+    "build": "cross-env NODE_ENV=production webpack --config webpack/prod.config.ts --progress --color",
+    "dev": "cross-env NODE_ENV=development webpack-dev-server --config webpack/dev.config.ts --color"
   },
   "repository": {
     "type": "git",
@@ -19,7 +17,16 @@
   },
   "devDependencies": {
     "@types/node": "^18.8.0",
-    "typescript": "^4.8.4"
+    "@types/webpack": "^5.28.0",
+    "cross-env": "^7.0.3",
+    "ignore-loader": "^0.1.2",
+    "rimraf": "^3.0.2",
+    "ts-loader": "^9.4.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.8.4",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0",
+    "webpack-dev-server": "^4.11.1"
   },
   "dependencies": {
     "byte-data": "^19.0.1"

@@ -1,4 +1,8 @@
-#[cfg(feature = "graphics")]
+export const WIDTH: number = 480;
+export const HEIGHT: number = WIDTH / 4 * 3;
+
+
+/* #[cfg(feature = "graphics")]
 use crate::SCREEN_SIZE;
 #[cfg(feature = "graphics")]
 use raylib::{
@@ -8,9 +12,6 @@ use raylib::{
 };
 
 use crate::{address_constants, memory::Memory, Address};
-
-export const WIDTH: number = 480;
-export const HEIGHT: number = WIDTH / 4 * 3;
 
 pub trait Display {
     type Handle;
@@ -143,3 +144,4 @@ impl Display for DisplayImplementation {
         self.first_framebuffer_visible
     }
 }
+ */

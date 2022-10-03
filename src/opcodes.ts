@@ -4,20 +4,20 @@ use std::collections::HashMap;
 
  */
 
-import * as Instruction from "./builtins/Instruction";
+import * as Instruction from "./builtins/Instruction"
 
 export class Opcode {
-    asInstruction() : Instruction.Instruction {
+    asInstruction(): Instruction.Instruction {
         //TODO
-        return -1;
+        return -1
     }
 
-    fromInstruction(Instruction: InstructionInstruction) : Opcode{
+    fromInstruction(Instruction: Instruction.Instruction): Opcode {
         //TODO
-        return this;
+        return this
     }
 }
-
+/* 
 
 
 macro_rules! type_to_abbreviation {
@@ -465,3 +465,4 @@ opcodes!(
     { PrintRegister, 0xFFF9, registers(Source R register); cycles = 1, Increment::Yes, "prints the value of the register as debug output"},
     { Checkpoint, 0xFFF8, registers(), immediate; cycles = 1, Increment::Yes, "makes the emulator check the value of the internal checkpoint counter, fails on mismatch" },
 );
+ */

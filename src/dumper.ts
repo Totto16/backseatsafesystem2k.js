@@ -1,4 +1,4 @@
-use std::{fs, io};
+/* use std::{fs, io};
 
 use chrono::prelude::*;
 
@@ -12,3 +12,4 @@ pub fn dump(filename_root: &str, data: &[u8]) -> io::Result<()> {
     );
     fs::write(filename, data)
 }
+ */
