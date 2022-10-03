@@ -1,4 +1,5 @@
 import * as Byte from "./Byte"
+import * as HalfWord from "./HalfWord"
 import { unpack, packTo } from "byte-data"
 import { Address } from "../address_constants"
 
@@ -9,7 +10,12 @@ export type Word = number
 export const bits = Byte.bits * SIZE
 
 export function fromBEBytes(buffer: Uint8ClampedArray): Word {
-    return unpack(new Uint8Array(buffer), { bits, signed: false, be: true }, 0, true)
+    return unpack(
+        new Uint8Array(buffer),
+        { bits, signed: false, be: true },
+        0,
+        true
+    )
 }
 
 export function saveAsBEBytes(
@@ -17,5 +23,20 @@ export function saveAsBEBytes(
     address: Address,
     value: Word
 ): void {
-    packTo(value, { bits, signed: false, be: true }, new Uint8Array(buffer), address)
+    packTo(
+        value,
+        { bits, signed: false, be: true },
+        new Uint8Array(buffer),
+        address
+    )
+}
+
+export function asHalfWords(
+    value: Word
+): [HalfWord.HalfWord, HalfWord.HalfWord] {
+    const binaryString = value.toString(2)
+    return [
+        binaryString.substring(0, HalfWord.SIZE * Byte.SIZE),
+        binaryString.substring(HalfWord.SIZE * Byte.SIZE),
+    ].map((a) => parseInt(a, 2)) as [HalfWord.HalfWord, HalfWord.HalfWord]
 }

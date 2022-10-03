@@ -10,10 +10,11 @@ export type Instant = number
 
 export class Cursor {
     visible: boolean
-    time_of_next_toggle: Instant
-    TOGGLE_INTERVAL: Duration = 400
-    constructor(visible: boolean, time_of_next_toggle: Instant) {
+    timeOfNextToggle: Instant
+    static TOGGLE_INTERVAL: Duration = 400
+    constructor(visible: boolean, timeOfNextToggle: Instant) {
         this.visible = visible
-        this.time_of_next_toggle = time_of_next_toggle
+        this.timeOfNextToggle = timeOfNextToggle
     }
+    
 }

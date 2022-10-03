@@ -1,8 +1,9 @@
 import * as Byte from "./Byte"
+import * as Word from "./Word"
 import { unpack, packTo } from "byte-data"
 import { Address } from "../address_constants"
 
-export const SIZE = 16 // TODO!!!
+export const SIZE = 8
 
 export type Instruction = number // TODO maybe we ned a class or BigInt here!!
 
@@ -28,4 +29,12 @@ export function saveAsBEBytes(
         new Uint8Array(buffer),
         address
     )
+}
+
+export function asWords(value: Instruction): [Word.Word, Word.Word] {
+    const binaryString = value.toString(2)
+    return [
+        binaryString.substring(0, Word.SIZE * Byte.SIZE),
+        binaryString.substring(Word.SIZE * Byte.SIZE),
+    ].map((a) => parseInt(a, 2)) as [Word.Word, Word.Word]
 }

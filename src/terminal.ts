@@ -7,10 +7,6 @@ export const HEIGHT: number = 25
 
 export type Vector2 = [number, number]
 
-export class Cursor {
-    // TODO
-}
-
 export type DrawHandle = [HTMLCanvasElement, HTMLCanvasElement]
 
 /* 

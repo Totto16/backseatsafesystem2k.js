@@ -1,16 +1,11 @@
-/* pub struct Timer {
-    get_ms_callback: Box<dyn FnMut() -> u64>,
-}
-
-impl<'a> Timer {
-    pub fn new(get_ms_callback: impl FnMut() -> u64 + 'static) -> Self {
-        Self {
-            get_ms_callback: Box::new(get_ms_callback),
-        }
+export class Timer {
+    startTime: number
+    constructor(startTime: Date | number) {
+        this.startTime =
+            typeof startTime === "number" ? startTime : startTime.getTime()
     }
 
-    pub fn get_ms_since_epoch(&mut self) -> u64 {
-        (self.get_ms_callback)()
+    getMsSinceEpoch(): number {
+        return new Date().getTime() - this.startTime
     }
 }
- */

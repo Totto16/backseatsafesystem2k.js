@@ -54,19 +54,36 @@ function onChooseFile(_event: Event) {
             throw new Error("No paragraph element was found!")
         }
         contentElement.innerText =
-            event.target?.result?.toString() ?? "no content"
+            event.target?.result
+                ?.toString()
+                .split("")
+                .map((a) => `0x${a.charCodeAt(0).toString(16).toUpperCase()}`)
+                .join(" ") ?? "no content"
     }
 
     fr.readAsText(file)
 
     if (!file.name.endsWith(".backseat")) {
         //TODO visualize this
-        throw new Error("not a backset file")
+        throw new Error("not a backseat file")
     }
 
     file.arrayBuffer().then((content) => {
-        runProgramm(getDrawHandle(true), new Uint8ClampedArray(content))
+        // TODO make buttons and checkboxes to manipulate the args, run , emit, json and the option like exit on halt
+        runProgramm(
+            getDrawHandle(true),
+            {
+                file,
+                content: new Uint8ClampedArray(content),
+            },
+            { action: "Run", arguments: { path: file.name, exitOnHalt: true } }
+        )
     })
 }
 
 start()
+
+export interface PseudoFile {
+    file: File
+    content: Uint8ClampedArray
+}
