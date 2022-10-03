@@ -1,23 +1,16 @@
-/* use crate::Word;
-
-pub enum KeyState {
+export enum KeyState {
     Down,
     Up,
 }
 
-pub struct Keyboard {
-    get_keystate_callback: Box<dyn FnMut(Word) -> KeyState>,
-}
+export class Keyboard {
+    getKeyStateCallback: (key: string) => KeyState
 
-impl Keyboard {
-    pub fn new(get_keystate_callback: Box<dyn FnMut(Word) -> KeyState>) -> Self {
-        Keyboard {
-            get_keystate_callback,
-        }
+    constructor(getKeyStateCallback: (key: string) => KeyState) {
+        this.getKeyStateCallback = getKeyStateCallback
     }
 
-    pub fn get_keystate(&mut self, key: Word) -> KeyState {
-        (self.get_keystate_callback)(key)
+    getKeyState(key: string): KeyState {
+        return this.getKeyStateCallback(key)
     }
 }
- */
