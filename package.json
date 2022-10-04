@@ -5,7 +5,8 @@
   "scripts": {
     "update": "npm-check -u -s",
     "build": "cross-env NODE_ENV=production webpack --config webpack/prod.config.ts --progress --color",
-    "dev": "cross-env NODE_ENV=development webpack-dev-server --config webpack/dev.config.ts --color"
+    "dev": "cross-env NODE_ENV=development webpack-dev-server --config webpack/dev.config.ts --color",
+    "generate":"ts-node src/generateOpCodes.ts"
   },
   "repository": {
     "type": "git",
@@ -29,6 +30,7 @@
     "webpack-dev-server": "^4.11.1"
   },
   "dependencies": {
+    "arcsecond": "^5.0.0",
     "byte-data": "^19.0.1"
   }
 }

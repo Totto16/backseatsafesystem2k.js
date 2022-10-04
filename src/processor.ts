@@ -1,37 +1,34 @@
-
 import * as Word from "./builtins/Word"
 import { Register } from "./main"
 
-
-export const NUM_REGISTERS = 256;
+export const NUM_REGISTERS = 256
 export class Registers {
-    numRegisters: number;
-    register: Register[];
-    constructor(numRegisters : number){
-        this.numRegisters = numRegisters;
-        this.register = new Array(numRegisters).fill(undefined).map(index=>new Register(index))
+    numRegisters: number
+    register: Register[]
+    constructor(numRegisters: number) {
+        this.numRegisters = numRegisters
+        this.register = new Array(numRegisters)
+            .fill(undefined)
+            .map((index) => new Register(index))
     }
 
-    getRegister(index: number){
-        return this.register[index];
+    getRegister(index: number) {
+        return this.register[index]
     }
-
 }
 
-export class  Processor {
-    registers: Registers;
-    cycleCount: number;
-    exitOnHalt: boolean;
-    checkpointCounter: Word.Word;
+export class Processor {
+    registers: Registers
+    cycleCount: number
+    exitOnHalt: boolean
+    checkpointCounter: Word.Word
     constructor(exitOnHalt: boolean) {
-        this.registers= new Registers(NUM_REGISTERS),
-        this.cycleCount=  0,
-        this.exitOnHalt = exitOnHalt,
-        this.checkpointCounter= 0,
-        
+        this.registers = new Registers(NUM_REGISTERS)
+        this.cycleCount = 0
+        this.exitOnHalt = exitOnHalt
+        this.checkpointCounter = 0
     }
 }
-
 
 export enum Direction {
     Forwards,
