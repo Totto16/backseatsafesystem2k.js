@@ -1,21 +1,24 @@
 import * as Byte from "./Byte"
 import * as Word from "./Word"
-import { unpack, packTo } from "byte-data"
+import { packArrayTo } from "byte-data"
+import { bigintToBuf } from "bigint-conversion"
+import { toBigIntBE, toBigIntLE, toBufferBE, toBufferLE } from "bigint-buffer"
 import { Address } from "../address_constants"
 
 export const SIZE = 8
 
-export type Instruction = number // TODO maybe we ned a class or BigInt here!!
+// js numbers aren't safe up to 2^64 alias u64,only up to 2^53 - 1, so here a BigInt has to be used!!
+// Attention calculation with these numbers are slightly different!
+export type Instruction = BigInt
 
 export const bits = Byte.bits * SIZE
 
 export function fromBEBytes(buffer: Uint8ClampedArray): Instruction {
-    return unpack(
-        new Uint8Array(buffer),
-        { bits, signed: false, be: true },
-        0,
-        true
-    )
+    // return toBigIntBE(buffer.buffer)
+
+    // TODO check if it's really BE
+
+    return BigInt.asUintN(64, new DataView(buffer).getBigUint64(0, false))
 }
 
 export function saveAsBEBytes(
@@ -23,8 +26,11 @@ export function saveAsBEBytes(
     address: Address,
     value: Instruction
 ): void {
-    packTo(
-        value,
+    // TODO check if it's really BE
+    const array = bigintToBuf(value as bigint, true)
+
+    packArrayTo(
+        new DataView(array),
         { bits, signed: false, be: true },
         new Uint8Array(buffer),
         address

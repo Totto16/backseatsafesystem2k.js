@@ -6,7 +6,7 @@
     "update": "npm-check -u -s",
     "build": "cross-env NODE_ENV=production webpack --config webpack/prod.config.ts --progress --color",
     "dev": "cross-env NODE_ENV=development webpack-dev-server --config webpack/dev.config.ts --color",
-    "generate":"ts-node src/generateOpCodes.ts"
+    "generate": "ts-node src/generateOpCodes.ts"
   },
   "repository": {
     "type": "git",
@@ -31,6 +31,8 @@
   },
   "dependencies": {
     "arcsecond": "^5.0.0",
+    "bigint-buffer": "^1.1.5",
+    "bigint-conversion": "^2.2.2",
     "byte-data": "^19.0.1"
   }
 }
