@@ -4,12 +4,13 @@ import { packArrayTo } from "byte-data"
 import { bigintToBuf } from "bigint-conversion"
 import { toBigIntBE, toBigIntLE, toBufferBE, toBufferLE } from "bigint-buffer"
 import { Address } from "../address_constants"
+import { u64 } from "./types"
 
 export const SIZE = 8
 
 // js numbers aren't safe up to 2^64 alias u64,only up to 2^53 - 1, so here a BigInt has to be used!!
 // Attention calculation with these numbers are slightly different!
-export type Instruction = BigInt
+export type Instruction = u64
 
 export const bits = Byte.bits * SIZE
 

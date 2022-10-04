@@ -2,10 +2,11 @@ import * as Byte from "./Byte"
 import * as HalfWord from "./HalfWord"
 import { unpack, packTo } from "byte-data"
 import { Address } from "../address_constants"
+import { u32 } from "./types"
 
 export const SIZE = 4
 
-export type Word = number
+export type Word = u32
 
 export const bits = Byte.bits * SIZE
 

@@ -1,15 +1,21 @@
-import * as Byte from "./Byte";
+import * as Byte from "./Byte"
 import { unpack, packTo } from "byte-data"
 import { Address } from "../address_constants"
+import { u16 } from "./types"
 
 export const SIZE = 2
 
-export type HalfWord = number
+export type HalfWord = u16
 
-export const bits = Byte.bits * SIZE; 
+export const bits = Byte.bits * SIZE
 
 export function fromBEBytes(buffer: Uint8ClampedArray): HalfWord {
-    return unpack(new Uint8Array(buffer), { bits, signed: false, be: true }, 0, true)
+    return unpack(
+        new Uint8Array(buffer),
+        { bits, signed: false, be: true },
+        0,
+        true
+    )
 }
 
 export function saveAsBEBytes(
@@ -17,5 +23,10 @@ export function saveAsBEBytes(
     address: Address,
     value: HalfWord
 ): void {
-    packTo(value, { bits, signed: false, be: true }, new Uint8Array(buffer), address)
+    packTo(
+        value,
+        { bits, signed: false, be: true },
+        new Uint8Array(buffer),
+        address
+    )
 }

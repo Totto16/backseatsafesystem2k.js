@@ -5,6 +5,7 @@ import { Display } from "./display"
 import { Keyboard } from "./keyboard"
 import { Machine } from "./machine"
 import { Periphery } from "./periphery"
+import { Register } from "./processor"
 import { DrawHandle } from "./terminal"
 import { Timer } from "./timer"
 
@@ -21,18 +22,6 @@ export const SCREEN_SIZE: Size2D = {
 export const OPCODE_LENGTH: number = 16
 
 export const TARGET_FPS: number = 60
-
-export class Register {
-    //#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-    index: number
-    constructor(index: number) {
-        this.index = index
-    }
-
-    static from(value: number): Register {
-        return new Register(value)
-    }
-}
 
 export type Path = string
 
