@@ -10,11 +10,11 @@ import {
     succeedWith,
     letters,
     digits,
-    ResultType,
 } from "arcsecond"
-import { writeFileSync } from "fs"
+import { writeFileSync, readFileSync } from "fs"
 import { join } from "path"
 import { exit } from "process"
+import * as HalfWord from "./builtins/HalfWord"
 
 const opcodes = `    // move instructions
     { MoveRegisterImmediate, 0x0000, registers(Target R register), immediate; cycles = 1, Increment::Yes, "move the value C into register R" },
@@ -135,14 +135,14 @@ const opcodes = `    // move instructions
     { PrintRegister, 0xFFF9, registers(Source R register); cycles = 1, Increment::Yes, "prints the value of the register as debug output"},
     { Checkpoint, 0xFFF8, registers(), immediate; cycles = 1, Increment::Yes, "makes the emulator check the value of the internal checkpoint counter, fails on mismatch" },`
 
-export type LineTypes = "comment" | "opCode"
+export type LineType = "comment" | "opCode"
 
-export type RegisterTypes = "Target" | "Source"
+export type RegisterType = "Target" | "Source"
 
 export type Register = {
     name: string
     letter: string
-    type: RegisterTypes
+    type: RegisterType
 }
 
 export type DataMap = {
@@ -160,7 +160,7 @@ export type DataMap = {
     }
 }
 
-export type ParsedType<T extends LineTypes = LineTypes> = {
+export type ParsedType<T extends LineType = LineType> = {
     type: T
     data: DataMap[T]
 }
@@ -221,7 +221,7 @@ const registerParser: Parser<Register | string, string, any> = contextual(
         const type = (yield choice([
             str("Target"),
             str("Source"),
-        ])) as RegisterTypes
+        ])) as RegisterType
 
         yield optionalWhitespace
 
@@ -260,7 +260,7 @@ const definition: Parser<
 
     yield delimiter(",")
 
-    const opCode = parseInt(yield regex(/^0x([0-9a-fA-F]*)/), 16)
+    const opCode = parseInt(yield regex(/^(0x[0-9a-fA-F]*)/), 16)
 
     yield delimiter(",")
 
@@ -304,7 +304,22 @@ const definition: Parser<
     yield char('"')
 
     // regex magic for matching escaped quotes!
-    const description = yield regex(/^((?:\\.|[^\\"])*)/)
+    const descriptionUnescaped = yield regex(/^((?:\\.|[^\\"])*)/)
+
+    const description = descriptionUnescaped.replaceAll(
+        /\\([bfnrtv'"\\]{1})/g,
+        (match: string): string => {
+            const map: { [key: string]: string } = {
+                b: "\b",
+                f: "\f",
+                n: "\n",
+                r: "\r",
+                t: "\t",
+                v: "\v",
+            }
+            return map[match] ?? match
+        }
+    )
 
     yield char('"')
 
@@ -346,19 +361,108 @@ const final: Parser<ParsedType[], string, any> = sepBy(newLine)(
 
 const parsed = final.run(opcodes)
 
+export type OPObject = {
+    immediate?: number
+    source_address?: number
+    target_address?: number
+    opCode: number
+    cycles: number
+    increment: boolean
+    [key: string]: string | number | boolean | undefined
+}
+
 if (!parsed.isError) {
     const ops = parsed.result
 
     const generatedTypescript: string[] = []
+    const opNames: string[] = []
+    const opObjects: string[] = []
     for (const { type, data } of ops) {
-        if (type == "opCode") {
-            generatedTypescript.push(JSON.stringify(data))
+        if (type === "opCode") {
+            const {
+                name,
+                opCode,
+                registers,
+                immediate,
+                source_address,
+                target_address,
+                cycles,
+                increment,
+                description,
+            } = data as DataMap["opCode"]
+
+            opNames.push(name)
+
+            const opObject: OPObject = { cycles, opCode, increment }
+
+            const amount = [immediate, target_address, source_address].reduce(
+                (acc, state) => acc + (state ? 1 : 0),
+                0
+            )
+            if (amount > 1) {
+                throw new Error(
+                    `Maximal one of 'immediate, target_address and source_address' can be specified : ${JSON.stringify(
+                        { immediate, target_address, source_address }
+                    )}`
+                )
+            }
+
+            // TODO check these sizes!
+
+            // this values map to their size!
+            if (immediate) {
+                opObject.immediate = HalfWord.SIZE
+            }
+
+            if (target_address) {
+                opObject.target_address = HalfWord.SIZE
+            }
+
+            if (source_address) {
+                opObject.source_address = HalfWord.SIZE
+            }
+
+            //TODO figure out the right layout for this!!
+            for (const { name, letter, type } of registers) {
+                opObject[name] = `Register.fromLetter("${letter}")`
+            }
+
+            const singleOpCode = [
+                "/**",
+                `* @description ${description}`,
+                "*/",
+                `${name} : {`,
+                Object.entries(opObject)
+                    .map(([key, value]) => `${key} : ${value}`)
+                    .join(",\n"),
+                "}",
+            ]
+
+            opObjects.push(singleOpCode.join("\n"))
         }
     }
 
+    generatedTypescript.push(
+        "export type OPCodeDefinitions = typeof opDefinitions"
+    )
+
+    generatedTypescript.push("")
+    generatedTypescript.push(
+        `export type OpCodeNames  = ${opNames
+            .map((type) => `"${type}"`)
+            .join(" | ")} ;`
+    )
+
+    generatedTypescript.push("")
+
+    generatedTypescript.push(
+        `export const opDefinitions = {${opObjects.join(",\n")}}`
+    )
+
+    const fileHeader = readFileSync(join(__dirname, "opcodes.ts")).toString()
     writeFileSync(
         join(__dirname, "opcodes.generated.ts"),
-        generatedTypescript.join("\n")
+        fileHeader + "\n" + generatedTypescript.join("\n")
     )
 
     console.log(`Successfully generated ts!`)

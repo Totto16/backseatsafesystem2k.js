@@ -5,7 +5,10 @@ export class Timer {
             typeof startTime === "number" ? startTime : startTime.getTime()
     }
 
-    getMsSinceEpoch(): number {
-        return new Date().getTime() - this.startTime
+    //TODO investigate, is the epoch time the correct one (since 1.1.1970) or since the machine start?!!??
+
+    getMsSinceEpoch(sinceMachineStartup = false): number {
+        const now = new Date().getTime()
+        return sinceMachineStartup ? now - this.startTime : now
     }
 }

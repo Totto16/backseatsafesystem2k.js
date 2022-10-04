@@ -1,22 +1,18 @@
-/* use crate::{Address, AsHalfwords, AsWords, Instruction, Register, Word};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
- */
-
 import * as Instruction from "./builtins/Instruction"
+import { Register } from "./processor"
 
-export class Opcode {
+export class OpCode {
     asInstruction(): Instruction.Instruction {
         //TODO
-        return -1
+        return -1n
     }
 
-    fromInstruction(Instruction: Instruction.Instruction): Opcode {
+    fromInstruction(Instruction: Instruction.Instruction): OpCode {
         //TODO
         return this
     }
 }
+
 /* 
 
 

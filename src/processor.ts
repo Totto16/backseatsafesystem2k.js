@@ -1,9 +1,10 @@
 import * as Word from "./builtins/Word"
 import { STACK_START } from "./address_constants";
-import { u64 } from "./builtins/types";
+import { u32, u64 } from "./builtins/types";
 import { Memory } from "./memory";
 import * as Instruction from "./builtins/Instruction"
-import { InstructionCache } from "./machine";
+import { InstructionCache, CachedInstruction} from "./machine";
+import {OpCode} from "./opcodes.generated"
 
 
 export const NUM_REGISTERS = 256
@@ -11,7 +12,7 @@ export class Registers {
     numRegisters: number
     registers: Register[];
 
-    [key: number]: number
+    [key: number | Register]: Word.Word;
 
     constructor(numRegisters: number) {
         this.numRegisters = numRegisters
@@ -24,7 +25,7 @@ export class Registers {
         let self = this
         return new Proxy(this, {
             get(target, prop) {
-                const index = Number(prop)
+                const index = prop instanceof Register ? prop.value : Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return self.registers[index].value
@@ -35,7 +36,7 @@ export class Registers {
                 return (target as { [key: string]: any })[prop as string]
             },
             set(target, prop, value) {
-                const index = Number(prop)
+                const index = prop instanceof Register ? prop.value : Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return (self.registers[index].value = value)
@@ -47,46 +48,51 @@ export class Registers {
             },
         })
     }
+
+
 }
 
 export class Register {
-     // TODO what is stored in here, a  Word, Bytes, halfWord ????!?!?
     value: Word.Word;
     constructor(value = 0) {
         this.value = value
     }
+
+    static fromLetter(letter : string) : Register{
+        // TODO: stub for the moment
+        return new Register();
+    }
 }
 
 
-/*
-macro_rules! define_flags {
-    ($(($flag_name:ident, shift = $shift:literal)),+) => {
-        bitflags! {
-            pub struct Flag: Word {
-                $(
-                    const $flag_name = 0b1 << $shift;
-                )+
-            }
-        }
+export type FlagName = "Zero" | "Carry" | "DivideByZero";
 
-        impl Flag {
-            pub fn as_hashmap() -> HashMap<&'static str, usize> {
-                HashMap::from([
-                    $(
-                        (stringify!($flag_name), $shift),
-                    )+
-                ])
-            }
-        }
-    };
+
+export type FlagDescription = [FlagName, number]
+export class Flag{
+    name : FlagName;
+    bits: Word.Word;
+    shift : Word.Word
+
+    static flags : FlagDescription[] = [
+        ["Zero", 0],
+        ["Carry", 1],
+        ["DivideByZero", 2]
+    ]
+
+    constructor(name : FlagName){
+        this.name = name;
+        const [,shift] = Flag.flags.filter(([nm])=>nm === name)[0];
+        this.bits = 0b1 << shift;
+        this.shift = shift;
+    }
+
+    set(registerContent : Word.Word, setStatus : boolean): Word.Word{
+        const  modifiedContent : Word.Word = (registerContent & ~(this.bits) | (setStatus << this.shift))
+        return modifiedContent
+    }
+
 }
-
-define_flags![
-    (Zero, shift = 0),
-    (Carry, shift = 1),
-    (DivideByZero, shift = 2)
-];
-*/
 
 
 export enum Direction {
@@ -120,14 +126,16 @@ export class Processor {
     }
 
 
-    getFlag(flag: Flag) :boolean {
+    getFlag(flagInput: Flag | FlagName) :boolean {
+        const flag = typeof flagInput === "string" ? new Flag(flagInput) : flagInput;
         this.registers[this.FLAGS] & flag.bits == flag.bits
     }
 
-    setFlag(flag: Flag, set: boolean) {
-        let flags = Flag.from_bits(self.registers[this.FLAGS])
-        flags.set(flag, set);
-        this.registers[this.FLAGS] = flags.bits;
+    setFlag(flagInput: Flag | FlagName, set: boolean) {
+        const flag = typeof flagInput === "string" ? new Flag(flagInput) : flagInput;
+
+        const bits : Word.Word = flag.set(this.registers[this.FLAGS], set);
+        this.registers[this.FLAGS] = bits;
     }
 
     getStackPointer() : Address {
@@ -206,7 +214,7 @@ export class Processor {
         const instructionAddress = this.getInstructionPointer();
         const cacheIndex = instructionAddress / Instruction.SIZE as Address;
         // TODO Instruction has to be made callable!!!!
-        instructionCache.cache[cacheIndex](this, memory, periphery)
+        return instructionCache.cache[cacheIndex](this, memory, periphery)
     }
 
     pushInstructionPointer(memory: Memory) {
@@ -218,10 +226,11 @@ export class Processor {
 
 
     static generateCachedInstruction(
-        opcode: Opcode,
+        opcode: OpCode,
     ) : CachedInstruction {
 
-        const handleCycleCountAndInstructionPointer = (processor: Processor)=> {
+        // unbound js function, the this is not the this referring the processor, it's meant to be like that!
+        const handleCycleCountAndInstructionPointer = function (processor: Processor){
             processor.increaseCycleCount(opcode.get_num_cycles());
             if (opcode.should_increment_instruction_pointer()) {
                 processor.advanceInstructionPointer(Direction.Forwards);

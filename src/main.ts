@@ -47,10 +47,10 @@ export type Action = {
     }
 }
 
-export type PossibleActions = "Run" | "Emit" | "Json"
+export type PossibleAction = "Run" | "Emit" | "Json"
 
 /// The typescript web based implementation of the backseat-safe-system-2k, everything was modifies from the reference implementation
-export interface Args<P extends PossibleActions = PossibleActions> {
+export interface Args<P extends PossibleAction = PossibleAction> {
     action: P
     arguments: Action[P]
 }
@@ -291,7 +291,7 @@ export function run(file: PseudoFile,handle: DrawHandle, exitOnHalt: boolean) : 
     let machine = new Machine(periphery, exitOnHalt);
 
     loadRom(machine, file);
-    machine.CachedInstructions();
+    machine.generateInstructionCache();
 
     // TODO load font here, instead of previously
  /*    #[cfg(feature = "graphics")]

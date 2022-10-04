@@ -6,8 +6,15 @@ import { ExecutionResult, Processor } from "./processor"
 import { TERMINAL_CURSOR_MODE, ENTRY_POINT } from "./address_constants"
 import { Cursor } from "./cursor"
 import { DrawHandle, render as terminalRender } from "./terminal"
+
+export type CachedInstruction = (
+    processor: Processor,
+    memory: Memory,
+    periphery: Periphery
+) => ExecutionResult
+
 export interface InstructionCache {
-    cache: Array<undefined | Instruction.Instruction>
+    cache: Array<undefined | CachedInstruction>
 }
 
 export class Machine {
@@ -32,7 +39,7 @@ export class Machine {
         }
     }
 
-    CachedInstructions() {
+    generateInstructionCache() {
         const MAX_NUM_INSTRUCTIONS: number = Memory.SIZE / Instruction.SIZE
         const cache = new Array(MAX_NUM_INSTRUCTIONS)
             .fill(undefined)
