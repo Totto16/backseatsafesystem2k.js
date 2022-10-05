@@ -38,12 +38,12 @@ export function saveAsBEBytes(
     )
 }
 
-export function toBEBytes(
-    value: Word
-): [Byte.Byte, Byte.Byte, Byte.Byte, Byte.Byte] {
+export type WordBytes = [Byte.Byte, Byte.Byte, Byte.Byte, Byte.Byte]
+
+export function toBEBytes(value: Word): WordBytes {
     const array = new Uint8ClampedArray(new ArrayBuffer(SIZE))
     saveAsBEBytes(array, 0, value)
-    return Array.from(array) as [Byte.Byte, Byte.Byte, Byte.Byte, Byte.Byte]
+    return Array.from(array) as WordBytes
 }
 
 export function asHalfWords(

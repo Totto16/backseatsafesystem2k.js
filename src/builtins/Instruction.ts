@@ -44,3 +44,20 @@ export function asWords(value: Instruction): [Word.Word, Word.Word] {
 export function isInstruction(number: Instruction) {
     return number >= 0n && number < 1n << BigInt(bits)
 }
+
+export type InstructionBytes = [
+    Byte.Byte,
+    Byte.Byte,
+    Byte.Byte,
+    Byte.Byte,
+    Byte.Byte,
+    Byte.Byte,
+    Byte.Byte,
+    Byte.Byte
+]
+
+export function toBEBytes(value: Instruction): InstructionBytes {
+    const array = new Uint8ClampedArray(new ArrayBuffer(SIZE))
+    saveAsBEBytes(array, 0, value)
+    return Array.from(array) as InstructionBytes
+}

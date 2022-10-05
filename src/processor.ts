@@ -1663,10 +1663,7 @@ export class Processor {
                     const stepSize = 16
                     for (const i = 0; i < Memory.SIZE; i += stepSize) {
                         const data = memory.data.slice(i, i + stepSize)
-                        const [upper, lower] = Instruction.asWords(
-                            BigInt(i)
-                        ).map((word) => Word.toBEBytes(word))
-                        const bytes = [...upper, ...lower]
+                        const bytes = Instruction.toBEBytes(BigInt(i))
                         console.debug(
                             `${Byte.toHexString(bytes)} : ${data
                                 .map((byte) => `0x${Byte.toHexString(byte)}`)

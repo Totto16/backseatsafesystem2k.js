@@ -1,13 +1,19 @@
 import { PseudoFile } from "."
-import { Address } from "./address_constants"
+import { Address, ENTRY_POINT } from "./address_constants"
 import { Cursor } from "./cursor"
 import { Display } from "./display"
 import { Keyboard } from "./keyboard"
 import { Machine } from "./machine"
+import { Memory } from "./memory"
 import { Periphery } from "./periphery"
 import { Register } from "./processor"
 import { DrawHandle } from "./terminal"
 import { Timer } from "./timer"
+import * as Word from "./builtins/Word"
+import * as Instruction from "./builtins/Instruction"
+import { u64 } from "./builtins/types"
+import { OpCode } from "./opcodes.generated"
+import * as terminal from "./terminal"
 
 export interface Size2D {
     width: number
@@ -83,14 +89,13 @@ export function runProgramm(handle: DrawHandle, file: PseudoFile, args: Args) {
     }
 }
 
-
 export enum Constant {
     Register = 0,
     Address,
-    UnsignedInteger
+    UnsignedInteger,
 }
 
-export type PossibleConstants = Register | Address | number;
+export type PossibleConstants = Register | Address | number
 
 /* 
 fn print_json(output_filename: Option<&Path>) -> Result<(), Box<dyn Error>> {
@@ -267,17 +272,22 @@ fn emit(output_filename: Option<&Path>) -> Result<(), Box<dyn Error>> {
 }
  */
 
-
-export function run(file: PseudoFile,handle: DrawHandle, exitOnHalt: boolean) : void{
-        // TODO init canvas here instead of earlier
-/*     let (raylib_handle, raylib_thread) = raylib::init()
+export function run(
+    file: PseudoFile,
+    handle: DrawHandle,
+    exitOnHalt: boolean
+): void {
+    // TODO init canvas here instead of earlier
+    /*     let (raylib_handle, raylib_thread) = raylib::init()
         .size(SCREEN_SIZE.width, SCREEN_SIZE.height)
         .title("Backseater")
         .build(); */
 
-    const listenDiv = handle[0].parentElement ?? handle[1].parentElement;
-    if(listenDiv === null){
-        throw new Error("The two canvas have no parent element, but the keyboard requires such an element!")
+    const listenDiv = handle[0].parentElement ?? handle[1].parentElement
+    if (listenDiv === null) {
+        throw new Error(
+            "The two canvas have no parent element, but the keyboard requires such an element!"
+        )
     }
 
     const timer = new Timer(new Date())
@@ -286,198 +296,185 @@ export function run(file: PseudoFile,handle: DrawHandle, exitOnHalt: boolean) : 
         new Keyboard(listenDiv),
         new Display(handle),
         new Cursor(true, new Date().getTime() + Cursor.TOGGLE_INTERVAL)
-        )
+    )
 
-    let machine = new Machine(periphery, exitOnHalt);
+    let machine = new Machine(periphery, exitOnHalt)
 
-    loadRom(machine, file);
-    machine.generateInstructionCache();
+    loadRom(machine, file)
+    machine.generateInstructionCache()
 
     // TODO load font here, instead of previously
- /*    #[cfg(feature = "graphics")]
+    /*    #[cfg(feature = "graphics")]
     let font = raylib_handle
         .borrow_mut()
         .load_font(&raylib_thread, "./resources/CozetteVector.ttf")?; */
 
-    let timeMeasurements : TimeMeasurements =  {
+    let timeMeasurements: TimeMeasurements = {
         nextRenderTime: timer.getMsSinceEpoch(),
-        lastCycleCount: 0,
-        lastRenderTime: 0,
-        clockFrequencyAccumulator: 0,
-        nextClockFrequencyRender: timer.getMsSinceEpoch() + 1000,
-        numClockFrequencyAccumulations: 0,
-        clockFrequencyAverage: 0,
-    };
+        lastCycleCount: 0n,
+        lastRenderTime: 0n,
+        clockFrequencyAccumulator: 0n,
+        nextClockFrequencyRender: timer.getMsSinceEpoch() + 1000n,
+        numClockFrequencyAccumulations: 0n,
+        clockFrequencyAverage: 0n,
+    }
 
-    let stopVM = false;
+    let stopVM = false
 
     while (stopVM) {
-        const currentTime = timer.getMsSinceEpoch();
-        renderIfNeeded(
-            currentTime,
-            timeMeasurements,
-            machine,
-        );
+        const currentTime = timer.getMsSinceEpoch()
+        renderIfNeeded(currentTime, timeMeasurements, handle, machine)
 
-            const [averageFrequency, dontRender] = [ timeMeasurements.clockFrequencyAverage,
-                currentTime > timeMeasurements.nextRenderTime]
+        const [averageFrequency, dontRender] = [
+            timeMeasurements.clockFrequencyAverage,
+            currentTime > timeMeasurements.nextRenderTime,
+        ]
 
-        let numCycles : number;
-        
-        if(dontRender){
-            timeMeasurements.nextRenderTime = currentTime;
-            numCycles = 0;
-        }else if(averageFrequency === 0){
-            numCycles = 10_000
-        }else{
-            const remainingMsUntilNextRender = timeMeasurements.nextRenderTime - currentTime;
-            const cycleDuration = 1000.0 / timeMeasurements.clockFrequencyAverage;
-            numCycles = (remainingMsUntilNextRender / cycleDuration - 10.0) 
+        let numCycles: u64
+
+        if (dontRender) {
+            timeMeasurements.nextRenderTime = currentTime
+            numCycles = 0n
+        } else if (averageFrequency === 0n) {
+            numCycles = 10_000n
+        } else {
+            const remainingMsUntilNextRender =
+                timeMeasurements.nextRenderTime - currentTime
+            const cycleDuration = 1000n / timeMeasurements.clockFrequencyAverage
+            numCycles = remainingMsUntilNextRender / BigInt(cycleDuration) - 10n
         }
-        
 
-        Array(numCycles).forEach(_=>executeNextInstruction(machine));
-        }
+        Array(numCycles).forEach((_) => executeNextInstruction(machine))
+    }
 }
 
-function loadRom(
-    machine: Machine,
-    file: PseudoFile): void {
+function loadRom(machine: Machine, file: PseudoFile): void {
     writeBuffer(file.content, machine)
 }
 
-function writeBuffer(content : Uint8ClampedArray, machine: Machine)   {
-    if ((Memory.SIZE - ENTRY_POINT) < content.length) {
-        throw new Error(`File size ${content.length} too big`);
+export function writeBuffer(content: Uint8ClampedArray, machine: Machine) {
+    if (Memory.SIZE - ENTRY_POINT < content.length) {
+        throw new Error(`File size ${content.length} too big`)
     }
-    if (content.length % Word.SIZE != 0 ){
-        throw new Error(`Filesize must be divisible by ${Word.SIZE}`);
+    if (content.length % Word.SIZE != 0) {
+        throw new Error(`Filesize must be divisible by ${Word.SIZE}`)
     }
-    machine.memory.data.set(content,  ENTRY_POINT);
+    machine.memory.data.set(content, ENTRY_POINT)
 }
 
-fn duration_since_epoch() -> Duration {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-}
-
-fn ms_since_epoch() -> u64 {
-    let since_the_epoch = duration_since_epoch();
-    since_the_epoch.as_secs() * 1000 + since_the_epoch.subsec_nanos() as u64 / 1_000_000
-}
-
-fn execute_next_instruction<Display>(machine: &mut Machine<Display>)
-where
-    Display: crate::Display + 'static,
-{
-    if !machine.is_halted() {
-        machine.execute_next_instruction();
+function executeNextInstruction(machine: Machine) {
+    if (!machine.isHalted) {
+        machine.executeNextInstruction()
     }
 }
 
-fn opcodes_to_machine_code(instructions: &[Opcode]) -> Vec<u8> {
-    instructions
-        .iter()
-        .map(|opcode| opcode.as_instruction())
-        .flat_map(|instruction| instruction.to_be_bytes())
-        .collect()
+function opcodesToMachineCode(instructions: OpCode[]): Uint8ClampedArray[] {
+    return instructions.map((opcode) => {
+        const array: Uint8ClampedArray = new Uint8ClampedArray(
+            new ArrayBuffer(Instruction.SIZE)
+        )
+        Instruction.saveAsBEBytes(array, 0, opcode.asInstruction())
+        return array
+    })
 }
 
-fn save_opcodes_as_machine_code(instructions: &[Opcode], filename: &Path) -> io::Result<()> {
-    let file_contents = opcodes_to_machine_code(instructions);
-    std::fs::write(filename, &file_contents)
+export function saveOpcodesAsMachineCode(
+    instructions: OpCode[],
+    filename: string
+) {
+    const fileContents = opcodesToMachineCode(instructions)
+    const url = URL.createObjectURL(new Blob(fileContents))
+
+    // TODO solve with link, so that it had a default name!
+    window.open(url, "_blank")
 }
 
 export interface TimeMeasurements {
-    nextRenderTime: number,
-    lastCycleCount: number,
-    lastRenderTime: number,
-    clockFrequencyAccumulator: number,
-    nextClockFrequencyRender: number,
-    numClockFrequencyAccumulations: number,
-    clockFrequencyAverage: number,
+    nextRenderTime: u64
+    lastCycleCount: u64
+    lastRenderTime: u64
+    clockFrequencyAccumulator: u64
+    nextClockFrequencyRender: u64
+    numClockFrequencyAccumulations: u64
+    clockFrequencyAverage: u64
 }
 
-#[cfg(feature = "graphics")]
-fn render_if_needed(
+function renderIfNeeded(
     currentTime: u64,
-    timeMeasurements: &mut TimeMeasurements,
-    raylib_handle: &mut RaylibHandle,
-    thread: &RaylibThread,
-    machine: &mut Machine<DisplayImplementation>,
-    font: &Font,
-    custom_number_format: &CustomFormat,
+    timeMeasurements: TimeMeasurements,
+    handle: DrawHandle,
+    machine: Machine
 ) {
-    if currentTime >= timeMeasurements.nextRenderTime {
-        timeMeasurements.nextRenderTime += 1000 / TARGET_FPS;
+    if (currentTime >= timeMeasurements.nextRenderTime) {
+        timeMeasurements.nextRenderTime += 1000n / BigInt(TARGET_FPS)
 
-        let mut draw_handle = raylib_handle.begin_drawing(thread);
-        render(&mut draw_handle, machine, font);
+        render(handle, machine)
 
-        let current_cycle_count = machine.processor.get_cycle_count();
-        if currentTime != timeMeasurements.lastRenderTime {
-            calculate_clock_frequency(currentTime, timeMeasurements, current_cycle_count);
-            draw_clock_frequency(
+        let currentCycleCount = machine.processor.getCycleCount()
+        if (currentTime != timeMeasurements.lastRenderTime) {
+            calculateClockFrequency(
+                currentTime,
                 timeMeasurements,
-                custom_number_format,
-                &mut draw_handle,
-                font,
-            );
+                currentCycleCount
+            )
+            drawClockFrequency(timeMeasurements, handle, machine)
         }
-        timeMeasurements.lastRenderTime = currentTime;
-        timeMeasurements.lastCycleCount = current_cycle_count;
+        timeMeasurements.lastRenderTime = currentTime
+        timeMeasurements.lastCycleCount = currentCycleCount
     }
 }
 
-#[cfg(feature = "graphics")]
-fn render(
-    draw_handle: &mut RaylibDrawHandle,
-    machine: &mut Machine<DisplayImplementation>,
-    font: &Font,
-) {
-    draw_handle.clear_background(Color::BLACK);
-    machine.render(draw_handle, font);
-    draw_handle.draw_fps(SCREEN_SIZE.width - 150, 10);
+function render(handle: DrawHandle, machine: Machine) {
+    const ctx = machine.periphery.display.getCurrentCtx(handle)
+    ctx.fillStyle = "black"
+    ctx.fillRect(0, 0, terminal.WIDTH, terminal.HEIGHT)
+
+    machine.render(handle)
+    // TODO implement fps display
+
+    /* var stats = new Stats();
+    stats.showPanel( 1 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild( stats.dom ); */
+
+    // draw_handle.draw_fps(SCREEN_SIZE.width - 150, 10);
 }
 
-fn calculate_clock_frequency(
+function calculateClockFrequency(
     currentTime: u64,
-    timeMeasurements: &mut TimeMeasurements,
-    current_cycle_count: u64,
+    timeMeasurements: TimeMeasurements,
+    currentCycleCount: u64
 ) {
-    let time_since_last_render = currentTime - timeMeasurements.lastRenderTime;
-    let cycles_since_last_render = current_cycle_count - timeMeasurements.lastCycleCount;
-    let clock_frequency = 1000 * cycles_since_last_render / time_since_last_render;
-    timeMeasurements.clockFrequencyAccumulator += clock_frequency;
-    timeMeasurements.numClockFrequencyAccumulations += 1;
-    if currentTime >= timeMeasurements.nextClockFrequencyRender {
-        timeMeasurements.clockFrequencyAverage = timeMeasurements.clockFrequencyAccumulator
-            / timeMeasurements.numClockFrequencyAccumulations;
-        timeMeasurements.nextClockFrequencyRender = currentTime + 1000;
-        timeMeasurements.clockFrequencyAccumulator = 0;
-        timeMeasurements.numClockFrequencyAccumulations = 0;
+    let timeSinceLastRender = currentTime - timeMeasurements.lastRenderTime
+    let cyclesSinceLastRender =
+        currentCycleCount - timeMeasurements.lastCycleCount
+    let clockFrequency = (1000n * cyclesSinceLastRender) / timeSinceLastRender
+    timeMeasurements.clockFrequencyAccumulator += clockFrequency
+    timeMeasurements.numClockFrequencyAccumulations += 1n
+    if (currentTime >= timeMeasurements.nextClockFrequencyRender) {
+        timeMeasurements.clockFrequencyAverage =
+            timeMeasurements.clockFrequencyAccumulator /
+            timeMeasurements.numClockFrequencyAccumulations
+        timeMeasurements.nextClockFrequencyRender = currentTime + 1000n
+        timeMeasurements.clockFrequencyAccumulator = 0n
+        timeMeasurements.numClockFrequencyAccumulations = 0n
     }
 }
 
-#[cfg(feature = "graphics")]
-fn draw_clock_frequency(
-    timeMeasurements: &TimeMeasurements,
-    custom_number_format: &CustomFormat,
-    draw_handle: &mut RaylibDrawHandle,
-    font: &Font,
+function drawClockFrequency(
+    timeMeasurements: TimeMeasurements,
+    handle: DrawHandle,
+    machine: Machine
 ) {
-    draw_handle.draw_text_ex(
-        font,
-        &*format!(
-            "{} kHz",
-            (timeMeasurements.clockFrequencyAverage / 1000)
-                .to_formatted_string(custom_number_format)
-        ),
-        Vector2::new(SCREEN_SIZE.width as f32 - 200.0, 100.0),
-        30.0,
-        1.0,
-        Color::WHITE,
-    );
+    const ctx = machine.periphery.display.getCurrentCtx(handle)
+
+    ctx.fillStyle = "white"
+
+    // doesn't affect anything
+    // ctx.lineWidth  = 5.0;
+
+    ctx.fillText(
+        `${timeMeasurements.clockFrequencyAverage / 1000n} kHz`,
+        SCREEN_SIZE.width - 200.0,
+        100.0
+    )
 }
- */
