@@ -3,45 +3,55 @@ import {
     FIRST_FRAMEBUFFER_START,
     FRAMEBUFFER_SIZE,
     Address,
+    DISPLAY_HEIGHT,
+    DISPLAY_WIDTH,
 } from "./address_constants"
 import { SCREEN_SIZE } from "./main"
 import { Memory } from "./memory"
-import { DrawHandle } from "./terminal"
-
-export const WIDTH: number = 480
-export const HEIGHT: number = (WIDTH / 4) * 3
+import * as terminal from "./terminal"
 
 export interface BasicDisplay {
     swap: () => void
-    is_first_framebuffer_visible: () => boolean
+    isFirstFramebufferVisible: () => boolean
 
-    render: (memory: Memory, handle: DrawHandle) => void
+    render: (memory: Memory, handle: terminal.DrawHandle) => void
     invisible_framebuffer_address: () => Address
 }
 
 export class MockDisplay implements BasicDisplay {
-    first_framebuffer_visible: boolean
+    firstFramebufferVisible: boolean
 
     constructor() {
-        this.first_framebuffer_visible = true
+        this.firstFramebufferVisible = true
     }
 
     invisible_framebuffer_address(): Address {
-        return this.is_first_framebuffer_visible()
+        return this.isFirstFramebufferVisible()
             ? SECOND_FRAMEBUFFER_START
             : FIRST_FRAMEBUFFER_START
     }
 
     swap() {
-        this.first_framebuffer_visible = !this.first_framebuffer_visible
+        this.firstFramebufferVisible = !this.firstFramebufferVisible
+        // TODO swap the canvas frames
+        // canvasElement.style.display = index === 1 ? "none" : "unset"
     }
 
-    is_first_framebuffer_visible(): boolean {
-        return this.first_framebuffer_visible
+    isFirstFramebufferVisible(): boolean {
+        return this.firstFramebufferVisible
     }
 
-    render(_memory: Memory, _handle: DrawHandle) {
-        // do nothing
+    getCurrentCtx(handle: terminal.DrawHandle): CanvasRenderingContext2D {
+        const index = this.isFirstFramebufferVisible() ? 0 : 1
+        const ctx = handle[index].getContext("2d")
+        if (ctx === null) {
+            throw new Error("Context is undefined!")
+        }
+        return ctx
+    }
+
+    render(_memory: Memory, _handle: terminal.DrawHandle) {
+        throw new Error("unreachable")
     }
 }
 
@@ -50,7 +60,7 @@ export const FONT_SIZE = 10
 export class DisplayImplementation extends MockDisplay {
     font: FontFace
 
-    constructor(handle: DrawHandle) {
+    constructor(handle: terminal.DrawHandle) {
         super()
 
         handle[0].style.display = "unset !important;"
@@ -69,12 +79,25 @@ export class DisplayImplementation extends MockDisplay {
                 }
             })
         })
+
         this.font = fontFace
+
+        const ctx = this.getCurrentCtx(handle)
+
+        ctx.fillStyle = "black"
+        ctx.fillRect(
+            0,
+            0,
+            terminal.WIDTH * Display.SCALE,
+            terminal.HEIGHT * Display.SCALE
+        )
     }
 }
 
 export class Display extends DisplayImplementation {
-    render(memory: Memory, handle: DrawHandle) {
+    static SCALE = 20
+
+    render(memory: Memory, handle: terminal.DrawHandle) {
         // TODO, tint color would be necessary to implement using canvas tint mode, but thats not necessary here, since it's white
         let tint_color = {
             r: 0xff,
@@ -83,31 +106,20 @@ export class Display extends DisplayImplementation {
             a: 0xff,
         }
 
-        const scale = SCREEN_SIZE.height / HEIGHT
-        const framebuffer_start = this.is_first_framebuffer_visible()
+        const scale = SCREEN_SIZE.height / DISPLAY_HEIGHT
+        const framebufferStart = this.isFirstFramebufferVisible()
             ? FIRST_FRAMEBUFFER_START
             : SECOND_FRAMEBUFFER_START
 
         const ctx = this.getCurrentCtx(handle)
 
-        const imageData = new ImageData(
-            new Uint8ClampedArray(
-                memory.data,
-                framebuffer_start,
-                FRAMEBUFFER_SIZE
-            ),
-            WIDTH,
-            HEIGHT
+        const array = new Uint8ClampedArray(
+            memory.data.buffer,
+            framebufferStart,
+            FRAMEBUFFER_SIZE
         )
-        ctx.putImageData(imageData, 0, 0)
-    }
+        const imageData = new ImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT)
 
-    getCurrentCtx(handle: DrawHandle): CanvasRenderingContext2D {
-        const index = this.is_first_framebuffer_visible() ? 0 : 1
-        const ctx = handle[index].getContext("2d")
-        if (ctx === null) {
-            throw new Error("Context is undefined!")
-        }
-        return ctx
+        ctx.putImageData(imageData, 0, 0)
     }
 }

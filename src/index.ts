@@ -1,3 +1,4 @@
+import { Display } from "./display"
 import { runProgramm } from "./main"
 import * as terminal from "./terminal"
 import { DrawHandle } from "./terminal"
@@ -11,8 +12,10 @@ function getDrawHandle(uninitialized = false): DrawHandle {
             throw new Error("No canvas element was found!")
         }
         if (uninitialized) {
-            canvasElement.height = terminal.HEIGHT
-            canvasElement.width = terminal.WIDTH
+            canvasElement.height = terminal.HEIGHT * Display.SCALE
+            canvasElement.width = terminal.WIDTH * Display.SCALE
+            canvasElement.style.display =
+                index === 1 ? "none" : "unset"
         }
         return canvasElement
     }) as DrawHandle

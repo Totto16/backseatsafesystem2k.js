@@ -4,6 +4,9 @@ import * as Word from "./builtins/Word"
 import * as terminal from "./terminal"
 import * as display from "./display"
 
+export const DISPLAY_WIDTH: number = 480
+export const DISPLAY_HEIGHT: number = (DISPLAY_WIDTH / 4) * 3
+
 export const TERMINAL_BUFFER_START: Address = 0
 export const TERMINAL_BUFFER_SIZE: number =
     terminal.WIDTH * terminal.HEIGHT * Byte.SIZE
@@ -11,7 +14,8 @@ export const TERMINAL_BUFFER_END: Address =
     TERMINAL_BUFFER_START + TERMINAL_BUFFER_SIZE
 export const TERMINAL_CURSOR_POINTER: Address = TERMINAL_BUFFER_END
 export const TERMINAL_CURSOR_MODE: Address = TERMINAL_CURSOR_POINTER + Word.SIZE
-export const FRAMEBUFFER_SIZE: Address = display.WIDTH * display.HEIGHT * 4 // RGBA
+export const FRAMEBUFFER_SIZE: Address = DISPLAY_WIDTH * DISPLAY_WIDTH * 4 // RGBA
+
 export const FIRST_FRAMEBUFFER_START: Address =
     TERMINAL_BUFFER_START +
     TERMINAL_BUFFER_SIZE +

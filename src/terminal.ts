@@ -9,7 +9,7 @@ import { Cursor } from "./cursor"
 import { Display } from "./display"
 import { Memory } from "./memory"
 
-const assert  = console.assert;
+import { assert } from "./builtins/utils"
 
 export const WIDTH: number = 80
 export const HEIGHT: number = 25
@@ -33,7 +33,7 @@ export function render(
     display: Display
 ) {
     const cursor_pointer = memory.readData(TERMINAL_CURSOR_POINTER)
-    assert(TERMINAL_BUFFER_START == 0) // to assume we get no overflow
+    assert(TERMINAL_BUFFER_START, 0) // to assume we get no overflow
 
     const cursorIndex = cursor_pointer - TERMINAL_BUFFER_START
     const cursorRow = cursorIndex / WIDTH

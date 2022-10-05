@@ -13,8 +13,7 @@ import { OpCode } from "./opcodes.generated"
 import * as Byte from "./builtins/Byte"
 import { KeyState } from "./keyboard"
 import { Periphery } from "./periphery"
-
-const assert  = console.assert;
+import { assert } from "./builtins/utils"
 
 export const NUM_REGISTERS = 256
 export class Registers {
@@ -31,13 +30,12 @@ export class Registers {
                 return new Register(index)
             })
 
-        let self = this
         return new Proxy(this, {
             get(target, prop) {
                 const index = Number(prop)
                 if (!isNaN(index)) {
-                    if (index >= 0 && index < self.numRegisters) {
-                        return self.registers[index].value
+                    if (index >= 0 && index < target.numRegisters) {
+                        return target.get(target.registers[index])
                     } else {
                         throw new Error(`Indexing out of range: ${index}`)
                     }
@@ -47,13 +45,20 @@ export class Registers {
             set(target, prop, value) {
                 const index = Number(prop)
                 if (!isNaN(index)) {
-                    if (index >= 0 && index < self.numRegisters) {
-                        return (self.registers[index].value = value)
+                    if (index >= 0 && index < target.numRegisters) {
+                        console.log(index, value)
+                        target.set(target.registers[index], value)
+                        return true
                     } else {
                         throw new Error(`Indexing out of range: ${index}`)
                     }
                 }
-                return (target as { [key: string]: any })[prop as string]
+                if (prop in target) {
+                    ;(target as { [key: string]: any })[prop as string] = value
+                    return true
+                }
+
+                return false
             },
         })
     }
@@ -63,9 +68,10 @@ export class Registers {
         return this.registers[index].value
     }
 
-    set(input: Word.Word | Register, value: Word.Word): Word.Word {
+    set(input: Word.Word | Register, value: Word.Word) {
+        assert(!isNaN(value))
         const index = typeof input === "number" ? input : input.index
-        return (this.registers[index].value = value)
+        this.registers[index].value = value
     }
 }
 
@@ -79,7 +85,9 @@ export class Register {
 
     static fromLetter(letter: string): Register {
         // TODO: stub for the moment
-        return new Register(letter.charCodeAt(0) - "a".charCodeAt(0))
+        return new Register(
+            letter.toUpperCase().charCodeAt(0) - "A".charCodeAt(0)
+        )
     }
 }
 
@@ -278,8 +286,7 @@ export class Processor {
         instructionCache: InstructionCache
     ): ExecutionResult {
         const instructionAddress = this.getInstructionPointer()
-        const cacheIndex = (instructionAddress / Instruction.SIZE) as Address
-        // TODO Instruction has to be made callable!!!!
+        const cacheIndex = instructionAddress / Instruction.SIZE
         const instruction: CachedInstruction | undefined =
             instructionCache.cache[cacheIndex]
         if (instruction === undefined) {
@@ -1756,9 +1763,8 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     throw new Error("panic")
-
                 }
-            }/*
+            } /*
             case "PrintRegister": {
                 const { register } = (opCode as OpCode<"PrintRegister">)
                     .parsedInstruction

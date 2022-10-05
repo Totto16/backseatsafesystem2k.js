@@ -343,7 +343,7 @@ export function run(
             const cycleDuration = 1000n / timeMeasurements.clockFrequencyAverage
             numCycles = remainingMsUntilNextRender / BigInt(cycleDuration) - 10n
         }
-        console.log(numCycles)
+
         for (let i = 0; i < numCycles; ++i) {
             executeNextInstruction(machine)
         }

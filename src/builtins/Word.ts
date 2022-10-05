@@ -6,7 +6,7 @@ import { u32, u64 } from "./types"
 import { Processor } from "../processor"
 import * as Instruction from "./Instruction"
 
-const assert  = console.assert;
+import { assert } from "./utils"
 
 export const SIZE = 4
 

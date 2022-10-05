@@ -2,10 +2,10 @@ import * as Byte from "./builtins/Byte"
 import * as Word from "./builtins/Word"
 import * as HalfWord from "./builtins/HalfWord"
 import * as Instruction from "./builtins/Instruction"
-const assert  = console.assert;
 
 import { Address } from "./address_constants"
 import { OpCode } from "./opcodes.generated"
+import { assert } from "./builtins/utils"
 
 export type Tuple<A, B> = [A, B]
 
@@ -22,7 +22,7 @@ export class Memory {
     }
 
     readOpcode(address: Address): OpCode {
-        assert(address % Instruction.SIZE === 0)
+        assert(address % Instruction.SIZE, 0)
         let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this._data.buffer,
             address,
@@ -33,7 +33,7 @@ export class Memory {
     }
 
     readData(address: Address): Word.Word {
-        assert(address % Word.SIZE === 0)
+        assert(address % Word.SIZE, 0)
         let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this._data.buffer,
             address,
@@ -43,7 +43,7 @@ export class Memory {
     }
 
     readHalfWord(address: Address): HalfWord.HalfWord {
-        assert(address % HalfWord.SIZE == 0)
+        assert(address % HalfWord.SIZE, 0)
         let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this._data.buffer,
             address,
@@ -62,25 +62,25 @@ export class Memory {
     }
 
     writeOpcode(address: Address, opcode: OpCode) {
-        assert(address % Instruction.SIZE === 0)
+        assert(address % Instruction.SIZE, 0)
         let instruction: Instruction.Instruction = opcode.asInstruction()
         Instruction.saveAsBEBytes(this._data, address, instruction)
     }
 
     writeData(address: Address, data: Word.Word) {
-        assert(address % Instruction.SIZE === 0)
+        assert(address % Instruction.SIZE, 0)
         assert(Word.isWord(data))
         Word.saveAsBEBytes(this._data, address, data)
     }
 
     writeHalfWord(address: Address, data: HalfWord.HalfWord) {
-        assert(address % Instruction.SIZE === 0)
+        assert(address % Instruction.SIZE, 0)
         assert(HalfWord.isHalfWord(data))
         HalfWord.saveAsBEBytes(this._data, address, data)
     }
 
     writeByte(address: Address, data: Byte.Byte) {
-        assert(address % Instruction.SIZE === 0)
+        assert(address % Instruction.SIZE, 0)
         assert(Byte.isByte(data))
         Byte.saveAsBEBytes(this._data, address, data)
     }
