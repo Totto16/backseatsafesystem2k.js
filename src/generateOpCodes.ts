@@ -455,20 +455,6 @@ if (!parsed.isError) {
     generatedTypescript.push("")
 
     generatedTypescript.push(
-        ...[
-            "export type OPCodeBasicDefinition = {",
-            "[key in OpCodeNames]: {",
-            "cycles: number",
-            "opCode: number",
-            "increment: boolean",
-            "} & Record<string, any>",
-            "}",
-        ]
-    )
-
-    generatedTypescript.push("")
-
-    generatedTypescript.push(
         `export const opDefinitions : OPCodeBasicDefinition = {${opObjects.join(
             ",\n"
         )}}`

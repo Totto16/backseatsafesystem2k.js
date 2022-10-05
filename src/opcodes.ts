@@ -30,6 +30,15 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
     }
 }
 
+
+export type OPCodeBasicDefinition = {
+    [key in OpCodeNames]: {
+    cycles: number
+    opCode: number
+    increment: boolean
+    } & Record<string, any>
+}
+
 /* 
 
 

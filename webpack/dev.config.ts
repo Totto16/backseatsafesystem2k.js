@@ -2,6 +2,9 @@ import path from "path"
 import webpack from "webpack"
 import "webpack-dev-server"
 
+
+// Error.stackTraceLimit = Infinity;
+
 const config: webpack.Configuration = {
     mode: "development",
 

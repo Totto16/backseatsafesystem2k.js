@@ -83,7 +83,7 @@ export function setFlags<T extends number | BigInt = Word>(
 }
 
 export function overflowingAdd(
-    { lhs, rhs }: CalculationInput,
+    lhs :Word ,rhs : Word,
     processor: Processor,
     withCarry?: boolean
 ): CalculationWithOverflow {
