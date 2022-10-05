@@ -1,5 +1,5 @@
 {
-    "exclude": ["node_modules", "webpack"],
+    "exclude": ["node_modules", "webpack", "jest.config.ts"],
     "compilerOptions": {
         "target": "es2022",
         "module": "CommonJS",
