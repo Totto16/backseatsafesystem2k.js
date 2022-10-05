@@ -6,7 +6,8 @@
     "update": "npm-check -u -s",
     "build": "cross-env NODE_ENV=production webpack --config webpack/prod.config.ts --progress --color",
     "dev": "cross-env NODE_ENV=development webpack-dev-server --config webpack/dev.config.ts --color",
-    "generate": "ts-node src/generateOpCodes.ts"
+    "generate": "ts-node src/generateOpCodes.ts",
+    "test": "npx jest"
   },
   "repository": {
     "type": "git",
@@ -17,11 +18,14 @@
     "url": "https://github.com/Totto16"
   },
   "devDependencies": {
+    "@types/jest": "^29.1.1",
     "@types/node": "^18.8.0",
     "@types/webpack": "^5.28.0",
     "cross-env": "^7.0.3",
     "ignore-loader": "^0.1.2",
+    "jest": "^29.1.2",
     "rimraf": "^3.0.2",
+    "ts-jest": "^29.0.3",
     "ts-loader": "^9.4.1",
     "ts-node": "^10.9.1",
     "typescript": "^4.8.4",
@@ -31,7 +35,6 @@
   },
   "dependencies": {
     "arcsecond": "^5.0.0",
-    "bigint-buffer": "^1.1.5",
     "bigint-conversion": "^2.2.2",
     "byte-data": "^19.0.1"
   }

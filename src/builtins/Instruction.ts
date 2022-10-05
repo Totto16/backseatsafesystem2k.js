@@ -1,8 +1,6 @@
 import * as Byte from "./Byte"
 import * as Word from "./Word"
-import { packArrayTo } from "byte-data"
 import { bigintToBuf } from "bigint-conversion"
-import { toBigIntBE, toBigIntLE, toBufferBE, toBufferLE } from "bigint-buffer"
 import { Address } from "../address_constants"
 import { u64 } from "./types"
 
@@ -14,34 +12,31 @@ export type Instruction = u64
 
 export const bits = Byte.bits * SIZE
 
-export function fromBEBytes(buffer: Uint8ClampedArray): Instruction {
-    // return toBigIntBE(buffer.buffer)
-
-    // TODO check if it's really BE
-
-    return BigInt.asUintN(64, new DataView(buffer).getBigUint64(0, false))
+export function fromBEBytes(array: Uint8ClampedArray): Instruction {
+    return BigInt.asUintN(64, new DataView(array.buffer).getBigUint64(0, false))
 }
 
 export function saveAsBEBytes(
-    buffer: Uint8ClampedArray,
+    array: Uint8ClampedArray,
     address: Address,
     value: Instruction
 ): void {
-    // TODO check if it's really BE
-    const array = bigintToBuf(value as bigint, true)
-
-    packArrayTo(
-        new DataView(array),
-        { bits, signed: false, be: true },
-        new Uint8Array(buffer),
-        address
+    const newArray: Uint8ClampedArray = new Uint8ClampedArray(
+        bigintToBuf(value as bigint, true)
     )
+
+    for (let i = 0; i < SIZE; ++i) {
+        if (newArray[i] > 255 || newArray[i] < 0) {
+            throw new Error(`number out of range: Byte ${newArray[i]}`)
+        }
+        array[address + i] = newArray[i]
+    }
 }
 
 export function asWords(value: Instruction): [Word.Word, Word.Word] {
     const binaryString = value.toString(2)
     return [
-        binaryString.substring(0, Word.SIZE * Byte.SIZE),
-        binaryString.substring(Word.SIZE * Byte.SIZE),
+        binaryString.substring(0, Word.SIZE * Byte.bits),
+        binaryString.substring(Word.SIZE * Byte.bits),
     ].map((a) => parseInt(a, 2)) as [Word.Word, Word.Word]
 }

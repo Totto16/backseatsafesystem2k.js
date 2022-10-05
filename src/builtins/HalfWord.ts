@@ -9,9 +9,9 @@ export type HalfWord = u16
 
 export const bits = Byte.bits * SIZE
 
-export function fromBEBytes(buffer: Uint8ClampedArray): HalfWord {
+export function fromBEBytes(array: Uint8ClampedArray): HalfWord {
     return unpack(
-        new Uint8Array(buffer),
+        new Uint8Array(array),
         { bits, signed: false, be: true },
         0,
         true
@@ -19,14 +19,15 @@ export function fromBEBytes(buffer: Uint8ClampedArray): HalfWord {
 }
 
 export function saveAsBEBytes(
-    buffer: Uint8ClampedArray,
+    array: Uint8ClampedArray,
     address: Address,
     value: HalfWord
 ): void {
     packTo(
         value,
         { bits, signed: false, be: true },
-        new Uint8Array(buffer),
-        address
+        new Uint8Array(array.buffer),
+        address,
+        true
     )
 }
