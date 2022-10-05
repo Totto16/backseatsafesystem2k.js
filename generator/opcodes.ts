@@ -1,22 +1,272 @@
-import {
-    Parser,
-    choice,
-    char,
-    sepBy,
-    regex,
-    optionalWhitespace,
-    str,
-    possibly,
-    succeedWith,
-    letters,
-    digits,
-} from "arcsecond"
-import { writeFileSync, readFileSync } from "fs"
-import { join } from "path"
-import { exit } from "process"
-import * as HalfWord from "./builtins/HalfWord"
+import * as Instruction from "./builtins/Instruction"
+import { Register } from "./processor"
+import * as Word from "./builtins/Word"
+import { Address } from "./address_constants"
+import { u64 } from "./builtins/types"
 
-const opcodes = `    // move instructions
+export class OpCode<T extends OpCodeNames = OpCodeNames> {
+    private instruction: Instruction.Instruction
+    name: T
+    parsedInstruction: OPCodeDefinitions[T]
+
+    constructor(instruction: Instruction.Instruction) {
+        this.instruction = instruction
+        //TODO parse everything !!
+        this.name = "DebugBreak" as T
+        this.parsedInstruction = { cycles: -1n, opCode: -1, increment: false } as unknown as OPCodeDefinitions[T]
+
+        /*     macro_rules! registers_to_instruction {
+            // entrypoint with at least one element
+            ( $( $r:ident ),+ ) => {
+                registers_to_instruction!(@ $( $r ),+ v 48)
+            };
+            // entrypoint with zero elements
+            () => {
+                0 as Instruction
+            };
+            // inner invocation with more then one element
+            (@ $r:ident, $( $rest:ident ),+ v $v:expr ) => {
+                ( ($r.0 as Instruction) << ($v-8) | registers_to_instruction!(@ $( $rest ),+ v $v - 8 ) )
+            };
+            // inner invocation with exactly one element
+            (@ $r:ident v $v:expr ) => {
+                ( ($r.0 as Instruction) << ($v-8) )
+            };
+        } */
+    }
+
+    asInstruction(): Instruction.Instruction {
+        return this.instruction
+    }
+
+    static fromInstruction(instruction: Instruction.Instruction): OpCode {
+        return new OpCode(instruction)
+    }
+
+    getNumCycles(): u64 {
+        return this.parsedInstruction.cycles
+    }
+
+    shouldIncrementInstructionPointer(): boolean {
+        return this.parsedInstruction.increment
+    }
+}
+
+/* export type OPCodeBasicDefinition = {
+    [key in OpCodeNames]: {
+        cycles: number
+        opCode: number
+        increment: boolean
+    } & Record<string, any>
+}
+ */
+export type RegisterType = "immediate" | "source_address" | "target_address"
+
+// TODO: understand rust macros FULLY
+
+export function typeToAbbreviation(type: RegisterType): string {
+    switch (type) {
+        case "immediate":
+            return "cccc\u{00a0}cccc"
+
+        case "immediate":
+            return "aaaa\u{00a0}aaaa"
+        case "immediate":
+            return "aaaa\u{00a0}aaaa"
+        default:
+            throw Error("unreachable")
+            break
+    }
+}
+
+export function typeToDatatype(type: RegisterType): string {
+    switch (type) {
+        case "immediate":
+            return "Word"
+
+        case "immediate":
+            return "Address"
+        case "immediate":
+            return "Address"
+        default:
+            throw Error("unreachable")
+            break
+    }
+}
+
+/*
+
+export class  opcodes {
+    ( $({
+        $identifier:ident,
+        $code:literal,
+        registers( $($register_usage:ident $register_letter:ident $register_name:ident ),* ) $(, $type:ident )? ;
+        cycles = $num_cycles:literal,
+        Increment::$should_increment:ident,
+        $comment:literal
+    },)+ ) => {
+        enum Increment {
+            Yes,
+            No,
+        }
+
+        #[derive(Serialize)]
+        pub enum RegisterUsage {
+            Target,
+            Source,
+        }
+
+        /// ## Opcodes
+        /// | Opcode                | Name | Meaning                                   |
+        /// |-----------------------|------|-------------------------------------------|
+        $(
+            #[doc = concat!(" | `", stringify!($code), "\u{00a0}", stringify_registers!(($( $register_letter ),*) $(, $type)?), "` | ", stringify!($identifier), " | ", $comment, " |")]
+        )+
+
+        #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+        #[repr(u32)] // for the speeds (blame: slartibart)
+        pub enum Opcode {
+            $(
+                $identifier{ $( $register_name : Register, )* $($type : type_to_datatype!($type))? },
+            )+
+        }
+
+        #[derive(Serialize)]
+        pub enum Argument {
+            Register(RegisterUsage, &'static str, &'static str),
+            Address,
+            Immediate,
+        }
+
+        #[derive(Serialize)]
+        pub struct OpcodeDescription {
+            opcode: u16,
+            arguments: Vec<Argument>,
+            opcode_type: Option<&'static str>,
+            cycles: usize,
+            should_increment: bool,
+            docstring: &'static str,
+        }
+
+        impl Opcode {
+            pub fn as_hashmap() -> HashMap<&'static str, OpcodeDescription> {
+                let mut result = HashMap::new();
+                $(
+                    {
+                        #[allow(unused_mut)]
+                        let mut arguments = Vec::<Argument>::new();
+
+                        macro_rules! push_target {
+                            () => {};
+                            (target_address) => {
+                                arguments.push(Argument::Address);
+                            };
+                            (source_address) => {};
+                            (immediate) => {};
+                        }
+                        push_target!($($type)?);
+
+                        $(
+                            arguments.push(Argument::Register(
+                                RegisterUsage::$register_usage,
+                                stringify!($register_letter),
+                                stringify!($register_name)
+                            ));
+                        )*
+
+                        macro_rules! push_source {
+                            () => {};
+                            (source_address) => {
+                                arguments.push(Argument::Address);
+                            };
+                            (immediate) => {
+                                arguments.push(Argument::Immediate);
+                            };
+                            (target_address) => {};
+                        }
+                        push_source!($($type)?);
+
+                        result.insert(stringify!($identifier), OpcodeDescription{
+                            opcode: $code,
+                            arguments,
+                            opcode_type: type_to_opcode_type!($($type)?),
+                            cycles: $num_cycles,
+                            should_increment: matches!(Increment::$should_increment, Increment::Yes),
+                            docstring: $comment,
+                        });
+                    }
+                )+
+                result
+            }
+
+            pub fn as_instruction(self) -> Instruction {
+                match self {
+                    $(
+                        Self::$identifier{ $( $register_name, )* $($type)?} => (($code as Instruction) << Instruction::BITS - u16::BITS) | registers_to_instruction!($( $register_name ),*) $(| $type as Instruction)?,
+                    )+
+                }
+            }
+
+            pub fn should_increment_instruction_pointer(self) -> bool {
+                match self {
+                    $(
+                        Self::$identifier{ .. } => matches!(Increment::$should_increment, Increment::Yes),
+                    )+
+                }
+            }
+
+            pub fn get_num_cycles(self) -> u8 {
+                match self {
+                    $(
+                        Self::$identifier{ .. } => $num_cycles,
+                    )+
+                }
+            }
+        }
+
+        impl TryFrom<Instruction> for Opcode {
+            type Error = &'static str;
+
+            fn try_from(value: Instruction) -> Result<Self, Self::Error> {
+                #![allow(clippy::mixed_read_write_in_expression)]
+                let opcode = value.as_words().0.as_halfwords().0;
+                let register_values = &value.to_be_bytes()[2..];
+                let mut registers = [Register(0); 6];
+                for (i, register) in registers.iter_mut().enumerate() {
+                    *register = Register(register_values[i]);
+                }
+                let immediate = value.as_words().1;
+                let address = immediate;
+                macro_rules! address_or_immediate {
+                    ( immediate ) => { immediate };
+                    ( source_address ) => { address };
+                    ( target_address ) => { address };
+                }
+                #[deny(unreachable_patterns)]
+                match opcode {
+                    $(
+                        $code => {
+                            let mut _register_index = 0;
+                            Ok(Self::$identifier{
+                            $(
+                                $register_name: registers[{
+                                    let old_index = _register_index;
+                                    _register_index += 1;
+                                    old_index
+                                }],
+                            )*
+                            $( $type: address_or_immediate!($type) )?
+                        })},
+                    )*
+                    _ => Err("Invalid opcode")
+                }
+            }
+        }
+    };
+}
+
+opcodes!(
+    // move instructions
     { MoveRegisterImmediate, 0x0000, registers(Target R register), immediate; cycles = 1, Increment::Yes, "move the value C into register R" },
     { MoveRegisterAddress, 0x0001, registers(Target R register), source_address; cycles = 1, Increment::Yes, "move the value at address A into register R" },
     { MoveTargetSource, 0x0002, registers(Target T target, Source S source); cycles = 1, Increment::Yes, "move the contents of register S into register T" },
@@ -86,11 +336,11 @@ const opcodes = `    // move instructions
     { JumpRegister, 0x001A, registers(Source R register); cycles = 1, Increment::No, "jump to the address stored in register R" },
 
     // conditional jumps, address given as immediate
-    { JumpImmediateIfEqual, 0x001B, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \\"equality\\"" },
-    { JumpImmediateIfGreaterThan, 0x001C, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \\"greater than\\"" },
-    { JumpImmediateIfLessThan, 0x001D, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \\"less than\\"" },
-    { JumpImmediateIfGreaterThanOrEqual, 0x001E, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \\"greater than\\" or \\"equal\\"" },
-    { JumpImmediateIfLessThanOrEqual, 0x001F, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \\"less than\\" or \\"equal\\"" },
+    { JumpImmediateIfEqual, 0x001B, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \"equality\"" },
+    { JumpImmediateIfGreaterThan, 0x001C, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \"greater than\"" },
+    { JumpImmediateIfLessThan, 0x001D, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \"less than\"" },
+    { JumpImmediateIfGreaterThanOrEqual, 0x001E, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \"greater than\" or \"equal\"" },
+    { JumpImmediateIfLessThanOrEqual, 0x001F, registers(Source C comparison), immediate; cycles = 1, Increment::No, "jump to the specified address if the comparison result in register C corresponds to \"less than\" or \"equal\"" },
     { JumpImmediateIfZero, 0x0020, registers(), immediate; cycles = 1, Increment::No, "jump to the specified address if the zero flag is set" },
     { JumpImmediateIfNotZero, 0x0021, registers(), immediate; cycles = 1, Increment::No, "jump to the specified address if the zero flag is not set" },
     { JumpImmediateIfCarry, 0x0022, registers(), immediate; cycles = 1, Increment::No, "jump to the specified address if the carry flag is set" },
@@ -99,11 +349,11 @@ const opcodes = `    // move instructions
     { JumpImmediateIfNotDivideByZero, 0x0025, registers(), immediate; cycles = 1, Increment::No, "jump to the specified address if the divide by zero flag is not set" },
 
     // conditional jumps, address given as register
-    { JumpRegisterIfEqual, 0x0026, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \\"equality\\"" },
-    { JumpRegisterIfGreaterThan, 0x0027, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \\"greater than\\"" },
-    { JumpRegisterIfLessThan, 0x0028, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \\"less than\\"" },
-    { JumpRegisterIfGreaterThanOrEqual, 0x0029, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \\"greater than\\" or \\"equal\\"" },
-    { JumpRegisterIfLessThanOrEqual, 0x002A, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \\"less than\\" or \\"equal\\"" },
+    { JumpRegisterIfEqual, 0x0026, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \"equality\"" },
+    { JumpRegisterIfGreaterThan, 0x0027, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \"greater than\"" },
+    { JumpRegisterIfLessThan, 0x0028, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \"less than\"" },
+    { JumpRegisterIfGreaterThanOrEqual, 0x0029, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \"greater than\" or \"equal\"" },
+    { JumpRegisterIfLessThanOrEqual, 0x002A, registers(Source P pointer, Source C comparison); cycles = 1, Increment::No, "jump to the address specified in register P if the comparison result in register C corresponds to \"less than\" or \"equal\"" },
     { JumpRegisterIfZero, 0x002B, registers(Source P pointer); cycles = 1, Increment::No, "jump to the address specified in register P if the zero flag is set" },
     { JumpRegisterIfNotZero, 0x002C, registers(Source P pointer); cycles = 1, Increment::No, "jump to the address specified in register P if the zero flag is not set" },
     { JumpRegisterIfCarry, 0x002D, registers(Source P pointer); cycles = 1, Increment::No, "jump to the address specified in register P if the carry flag is set" },
@@ -133,345 +383,6 @@ const opcodes = `    // move instructions
     { AssertPointerImmediate, 0xFFFB, registers(Source P pointer), immediate; cycles = 1, Increment::Yes, "assert that the value in memory pointed at by P equals the immediate (behavior of the VM on a failed assertion is implementation defined)"},
     { DebugBreak, 0xFFFA, registers(); cycles = 1, Increment::Yes, "behavior is implementation defined" },
     { PrintRegister, 0xFFF9, registers(Source R register); cycles = 1, Increment::Yes, "prints the value of the register as debug output"},
-    { Checkpoint, 0xFFF8, registers(), immediate; cycles = 1, Increment::Yes, "makes the emulator check the value of the internal checkpoint counter, fails on mismatch" },`
-
-export type LineType = "comment" | "opCode"
-
-export type RegisterType = "Target" | "Source"
-
-export type Register = {
-    name: string
-    letter: string
-    type: RegisterType
-}
-
-export type DataMap = {
-    comment: string
-    opCode: {
-        name: string
-        registers: Register[]
-        immediate: boolean
-        source_address: boolean
-        target_address: boolean
-        opCode: number
-        cycles: number
-        increment: boolean
-        description: string
-    }
-}
-
-export type ParsedType<T extends LineType = LineType> = {
-    type: T
-    data: DataMap[T]
-}
-
-// only changed the type, so that next has to pass the value, no undefined allowed!
-interface CustomGenerator<T = unknown, TReturn = any, TNext = unknown>
-    extends Iterator<T, TReturn, TNext> {
-    next(...args: [TNext]): IteratorResult<T, TReturn>
-    return(value: TReturn): IteratorResult<T, TReturn>
-    throw(e: any): IteratorResult<T, TReturn>
-    [Symbol.iterator](): CustomGenerator<T, TReturn, TNext>
-}
-
-const contextual = <RType = any>(
-    generatorFn: () => CustomGenerator<
-        Parser<any, string, string>,
-        string | RType,
-        string | undefined
-    >
-) => {
-    return succeedWith<string, string, string>("").chain(
-        (a: string | undefined): Parser<string, string, string> => {
-            const iterator: CustomGenerator<
-                Parser<any, string, string>,
-                string | RType,
-                string
-            > = generatorFn()
-
-            const runStep: (
-                nextValue: string
-            ) => Parser<any, string, string> = (nextValue) => {
-                const { done, value } = iterator.next(nextValue)
-
-                if (done) {
-                    return succeedWith(value)
-                }
-                if (!(value instanceof Parser)) {
-                    throw new Error(
-                        "contextual: yielded values must always be parsers!"
-                    )
-                }
-                const nextParser: Parser<any, string, string> = value
-
-                return nextParser.chain(runStep)
-            }
-
-            return runStep("")
-        }
-    )
-}
-
-const registerParser: Parser<Register | string, string, any> = contextual(
-    function* (): CustomGenerator<
-        Parser<any, string, any>,
-        Register | string,
-        string
-    > {
-        const type = (yield choice([
-            str("Target"),
-            str("Source"),
-        ])) as RegisterType
-
-        yield optionalWhitespace
-
-        const letter = yield regex(/^[A-Z]{1}/)
-
-        yield optionalWhitespace
-
-        const name = yield letters
-
-        return {
-            type,
-            letter,
-            name,
-        }
-    }
-)
-
-const definition: Parser<
-    ParsedType<"opCode"> | Register | string,
-    string,
-    any
-> = contextual<ParsedType<"opCode"> | Register>(function* (): CustomGenerator<
-    Parser<any, string, any>,
-    ParsedType<"opCode"> | string | Register,
-    string
-> {
-    const delimiter = (ch = ",") => {
-        return optionalWhitespace.chain(() =>
-            char(ch).chain(() => optionalWhitespace)
-        )
-    }
-
-    yield delimiter("{")
-
-    const name = yield letters
-
-    yield delimiter(",")
-
-    const opCode = parseInt(yield regex(/^(0x[0-9a-fA-F]*)/), 16)
-
-    yield delimiter(",")
-
-    yield str("registers(")
-
-    const registers = (yield possibly(
-        sepBy(delimiter(","))(registerParser)
-    )) as unknown as Register[]
-
-    yield char(")")
-
-    // these three can possibly also be a choice, since not all are present at the same time, only one at a time is present!
-
-    const immediate =
-        (yield possibly(delimiter(",").chain(() => str("immediate")))) !== null
-
-    const source_address =
-        (yield possibly(delimiter(",").chain(() => str("source_address")))) !==
-        null
-
-    const target_address =
-        (yield possibly(delimiter(",").chain(() => str("target_address")))) !==
-        null
-
-    yield delimiter(";")
-
-    yield str("cycles")
-
-    yield delimiter("=")
-
-    const cycles = parseInt(yield digits)
-
-    yield delimiter(",")
-
-    yield str("Increment::")
-
-    const increment = (yield choice([str("Yes"), str("No")])) == "Yes"
-
-    yield delimiter(",")
-
-    yield char('"')
-
-    // regex magic for matching escaped quotes!
-    const descriptionUnescaped = yield regex(/^((?:\\.|[^\\"])*)/)
-
-    const description = descriptionUnescaped.replaceAll(
-        /\\([bfnrtv'"\\]{1})/g,
-        (match: string): string => {
-            const map: { [key: string]: string } = {
-                b: "\b",
-                f: "\f",
-                n: "\n",
-                r: "\r",
-                t: "\t",
-                v: "\v",
-            }
-            return map[match] ?? match
-        }
-    )
-
-    yield char('"')
-
-    yield delimiter("}")
-
-    yield possibly(char(","))
-
-    return {
-        type: "opCode",
-        data: {
-            name,
-            opCode,
-            registers,
-            immediate,
-            source_address,
-            target_address,
-            cycles,
-            increment,
-            description,
-        },
-    }
-})
-
-const comment: Parser<
-    ParsedType<"comment">,
-    string,
-    any
-> = optionalWhitespace.chain((_) =>
-    str("//")
-        .chain((_) => optionalWhitespace.chain((_) => regex(/^(.*)/)))
-        .map((data) => ({ type: "comment", data }))
-)
-
-const newLine = choice([char("\n"), char("\n")])
-
-const final: Parser<ParsedType[], string, any> = sepBy(newLine)(
-    choice([definition, comment])
-) as unknown as Parser<ParsedType[], string, any>
-
-const parsed = final.run(opcodes)
-
-export type OPObject = {
-    immediate?: number
-    source_address?: number
-    target_address?: number
-    opCode: number
-    cycles: number
-    increment: boolean
-} & Record<string, any>
-
-if (!parsed.isError) {
-    const ops = parsed.result
-
-    const generatedTypescript: string[] = []
-    const opNames: string[] = []
-    const opObjects: string[] = []
-    for (const { type, data } of ops) {
-        if (type === "opCode") {
-            const {
-                name,
-                opCode,
-                registers,
-                immediate,
-                source_address,
-                target_address,
-                cycles,
-                increment,
-                description,
-            } = data as DataMap["opCode"]
-
-            opNames.push(name)
-
-            const opObject: OPObject = { cycles, opCode, increment }
-
-            const amount = [immediate, target_address, source_address].reduce(
-                (acc, state) => acc + (state ? 1 : 0),
-                0
-            )
-            if (amount > 1) {
-                throw new Error(
-                    `Maximal one of 'immediate, target_address and source_address' can be specified : ${JSON.stringify(
-                        { immediate, target_address, source_address }
-                    )}`
-                )
-            }
-
-            // TODO check these sizes!
-
-            // this values map to their size!
-            if (immediate) {
-                opObject.immediate = HalfWord.SIZE
-            }
-
-            if (target_address) {
-                opObject.target_address = HalfWord.SIZE
-            }
-
-            if (source_address) {
-                opObject.source_address = HalfWord.SIZE
-            }
-
-            //TODO figure out the right layout for this!!
-            for (const { name, letter, type } of registers) {
-                opObject[name] = `Register.fromLetter("${letter}")`
-            }
-
-            const singleOpCode = [
-                "/**",
-                `* @description ${description}`,
-                "*/",
-                `${name} : {`,
-                Object.entries(opObject)
-                    .map(([key, value]) => `${key} : ${value}`)
-                    .join(",\n"),
-                "}",
-            ]
-
-            opObjects.push(singleOpCode.join("\n"))
-        }
-    }
-
-    generatedTypescript.push(
-        "export type OPCodeDefinitions = typeof opDefinitions"
-    )
-
-    generatedTypescript.push("")
-    generatedTypescript.push(
-        `export type OpCodeNames  = ${opNames
-            .map((type) => `"${type}"`)
-            .join(" | ")} ;`
-    )
-
-    generatedTypescript.push("")
-
-    generatedTypescript.push(
-        `export const opDefinitions : OPCodeBasicDefinition = {${opObjects.join(
-            ",\n"
-        )}}`
-    )
-
-    const fileHeader = readFileSync(join(__dirname, "opcodes.ts")).toString()
-    writeFileSync(
-        join(__dirname, "opcodes.generated.ts"),
-        fileHeader + "\n" + generatedTypescript.join("\n")
-    )
-
-    console.log(`Successfully generated ts!`)
-} else {
-    console.error(parsed.error)
-    const index = parsed.index
-    const start = Math.max(index - 10, 0)
-    const end = Math.min(index + 30, opcodes.length)
-    console.warn("Error was here:", opcodes.substring(start, end))
-    exit(1)
-}
+    { Checkpoint, 0xFFF8, registers(), immediate; cycles = 1, Increment::Yes, "makes the emulator check the value of the internal checkpoint counter, fails on mismatch" },
+);
+ */

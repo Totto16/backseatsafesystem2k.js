@@ -3,9 +3,10 @@ import * as terminal from "./terminal"
 import { DrawHandle } from "./terminal"
 
 function getDrawHandle(uninitialized = false): DrawHandle {
-    return [0, 1].map((_) => {
-        const canvasElement: HTMLCanvasElement | null =
-            document.querySelector("canvas#console")
+    return [0, 1].map((_, index) => {
+        const canvasElement: HTMLCanvasElement | null = document.querySelector(
+            `canvas#console-${index + 1}`
+        )
         if (canvasElement === null) {
             throw new Error("No canvas element was found!")
         }

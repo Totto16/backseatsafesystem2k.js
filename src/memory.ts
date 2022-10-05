@@ -2,7 +2,7 @@ import * as Byte from "./builtins/Byte"
 import * as Word from "./builtins/Word"
 import * as HalfWord from "./builtins/HalfWord"
 import * as Instruction from "./builtins/Instruction"
-import assert from "assert"
+const assert  = console.assert;
 
 import { Address } from "./address_constants"
 import { OpCode } from "./opcodes.generated"

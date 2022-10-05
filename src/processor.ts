@@ -1,5 +1,10 @@
 import * as Word from "./builtins/Word"
-import { STACK_START } from "./address_constants"
+import {
+    STACK_START,
+    ENTRY_POINT,
+    Address,
+    STACK_SIZE,
+} from "./address_constants"
 import { u32, u64 } from "./builtins/types"
 import { Memory } from "./memory"
 import * as Instruction from "./builtins/Instruction"
@@ -7,28 +12,29 @@ import { InstructionCache, CachedInstruction } from "./machine"
 import { OpCode } from "./opcodes.generated"
 import * as Byte from "./builtins/Byte"
 import { KeyState } from "./keyboard"
-import assert from "assert"
+import { Periphery } from "./periphery"
+
+const assert  = console.assert;
 
 export const NUM_REGISTERS = 256
 export class Registers {
     numRegisters: number
     registers: Register[];
 
-    [key: number | Register]: Word.Word
+    [key: number]: Word.Word
 
     constructor(numRegisters: number) {
         this.numRegisters = numRegisters
         this.registers = new Array(numRegisters)
             .fill(undefined)
             .map((_, index) => {
-                return new Register()
+                return new Register(index)
             })
 
         let self = this
         return new Proxy(this, {
             get(target, prop) {
-                const index =
-                    prop instanceof Register ? prop.index : Number(prop)
+                const index = Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return self.registers[index].value
@@ -39,8 +45,7 @@ export class Registers {
                 return (target as { [key: string]: any })[prop as string]
             },
             set(target, prop, value) {
-                const index =
-                    prop instanceof Register ? prop.index : Number(prop)
+                const index = Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return (self.registers[index].value = value)
@@ -51,6 +56,16 @@ export class Registers {
                 return (target as { [key: string]: any })[prop as string]
             },
         })
+    }
+
+    get(input: Word.Word | Register): Word.Word {
+        const index = typeof input === "number" ? input : input.index
+        return this.registers[index].value
+    }
+
+    set(input: Word.Word | Register, value: Word.Word): Word.Word {
+        const index = typeof input === "number" ? input : input.index
+        return (this.registers[index].value = value)
     }
 }
 
@@ -91,7 +106,7 @@ export class Flag {
 
     set(registerContent: Word.Word, setStatus: boolean): Word.Word {
         const modifiedContent: Word.Word =
-            (registerContent & ~this.bits) | (setStatus << this.shift)
+            (registerContent & ~this.bits) | ((setStatus ? 1 : 0) << this.shift)
         return modifiedContent
     }
 }
@@ -160,40 +175,41 @@ export class Processor {
     exitOnHalt: boolean
     checkpointCounter: Word.Word
 
-    FLAGS: Register = Register(NUM_REGISTERS - 3)
-    INSTRUCTION_POINTER: Register = Register(NUM_REGISTERS - 2)
-    STACK_POINTER: Register = Register(NUM_REGISTERS - 1)
+    FLAGS: Register = new Register(NUM_REGISTERS - 3)
+    INSTRUCTION_POINTER: Register = new Register(NUM_REGISTERS - 2)
+    STACK_POINTER: Register = new Register(NUM_REGISTERS - 1)
 
     constructor(exitOnHalt: boolean) {
         this.registers = new Registers(NUM_REGISTERS)
-        this.cycleCount = 0
+        this.cycleCount = 0n
         this.exitOnHalt = exitOnHalt
         this.checkpointCounter = 0
-        this.registers[this.INSTRUCTION_POINTER] = ENTRY_POINT
-        this.registers[this.STACK_POINTER] = STACK_START
+        this.registers.set(this.INSTRUCTION_POINTER, ENTRY_POINT)
+        this.registers.set(this.STACK_POINTER, STACK_START)
     }
 
     getFlag(flagInput: Flag | FlagName): boolean {
         const flag =
             typeof flagInput === "string" ? new Flag(flagInput) : flagInput
-        this.registers[this.FLAGS] & (flag.bits == flag.bits)
+
+        return (this.registers.get(this.FLAGS) & flag.bits) == flag.bits
     }
 
     setFlag(flagInput: Flag | FlagName, set: boolean) {
         const flag =
             typeof flagInput === "string" ? new Flag(flagInput) : flagInput
 
-        const bits: Word.Word = flag.set(this.registers[this.FLAGS], set)
-        this.registers[this.FLAGS] = bits
+        const bits: Word.Word = flag.set(this.registers.get(this.FLAGS), set)
+        this.registers[this.FLAGS.index] = bits
     }
 
     getStackPointer(): Address {
-        this.registers[this.STACK_POINTER]
+        return this.registers.get(this.STACK_POINTER)
     }
 
     setStackPointer(address: Address) {
         assert(address > STACK_START && address - STACK_START < STACK_SIZE)
-        this.registers[this.STACK_POINTER] = address
+        this.registers.set(this.STACK_POINTER, address)
     }
 
     advanceStackPointer(step: number, direction: Direction) {
@@ -216,17 +232,17 @@ export class Processor {
         this.advanceStackPointer(Word.SIZE, Direction.Forwards)
     }
 
-    stackPop(memory: Memory): Word.word {
+    stackPop(memory: Memory): Word.Word {
         this.advanceStackPointer(Word.SIZE, Direction.Backwards)
-        memory.readData(this.getStackPointer())
+        return memory.readData(this.getStackPointer())
     }
 
     setInstructionPointer(address: Address) {
-        this.registers[this.INSTRUCTION_POINTER] = address
+        this.registers.set(this.INSTRUCTION_POINTER, address)
     }
 
     getInstructionPointer(): Address {
-        this.registers[this.INSTRUCTION_POINTER]
+        return this.registers.get(this.INSTRUCTION_POINTER)
     }
 
     advanceInstructionPointer(direction: Direction) {
@@ -249,14 +265,14 @@ export class Processor {
     }
 
     getCycleCount(): u64 {
-        this.cycleCount
+        return this.cycleCount
     }
 
     increaseCycleCount(amount: u64) {
-        self.cycleCount += amount
+        this.cycleCount += amount
     }
 
-    executeNextInstruction<>(
+    executeNextInstruction(
         memory: Memory,
         periphery: Periphery,
         instructionCache: InstructionCache
@@ -264,7 +280,13 @@ export class Processor {
         const instructionAddress = this.getInstructionPointer()
         const cacheIndex = (instructionAddress / Instruction.SIZE) as Address
         // TODO Instruction has to be made callable!!!!
-        return instructionCache.cache[cacheIndex](this, memory, periphery)
+        const instruction: CachedInstruction | undefined =
+            instructionCache.cache[cacheIndex]
+        if (instruction === undefined) {
+            //TODO then get the instruction in the memory, may cause unsafe code execution (alias dynamical code loaded into memory)
+            throw new Error("trying to read undefined instruction")
+        }
+        return instruction(this, memory, periphery)
     }
 
     pushInstructionPointer(memory: Memory) {
@@ -283,7 +305,7 @@ export class Processor {
         }
 
         switch (opCode.name) {
-            case "MoveRegisterImmediate": {
+            /* case "MoveRegisterImmediate": {
                 const { register, immediate } = (
                     opCode as OpCode<"MoveRegisterImmediate">
                 ).parsedInstruction
@@ -1726,7 +1748,7 @@ export class Processor {
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
-            }
+            }*/
             case "DebugBreak": {
                 return function (
                     processor: Processor,
@@ -1734,8 +1756,9 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     throw new Error("panic")
+
                 }
-            }
+            }/*
             case "PrintRegister": {
                 const { register } = (opCode as OpCode<"PrintRegister">)
                     .parsedInstruction
@@ -1876,7 +1899,7 @@ export class Processor {
                     return ExecutionResult.Normal
                 }
             }
-
+ */
             default:
                 throw new Error(`unimplemented operation Code: ${opCode.name}!`)
         }

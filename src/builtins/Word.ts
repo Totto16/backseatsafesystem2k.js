@@ -5,7 +5,8 @@ import { Address } from "../address_constants"
 import { u32, u64 } from "./types"
 import { Processor } from "../processor"
 import * as Instruction from "./Instruction"
-import assert from "assert"
+
+const assert  = console.assert;
 
 export const SIZE = 4
 
@@ -83,7 +84,8 @@ export function setFlags<T extends number | BigInt = Word>(
 }
 
 export function overflowingAdd(
-    lhs :Word ,rhs : Word,
+    lhs: Word,
+    rhs: Word,
     processor: Processor,
     withCarry?: boolean
 ): CalculationWithOverflow {

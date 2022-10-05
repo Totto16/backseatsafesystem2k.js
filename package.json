@@ -6,7 +6,7 @@
     "update": "npm-check -u -s",
     "build": "cross-env NODE_ENV=production webpack --config webpack/prod.config.ts --progress --color",
     "dev": "cross-env NODE_ENV=development webpack-dev-server --config webpack/dev.config.ts --color",
-    "generate": "ts-node src/generateOpCodes.ts",
+    "generate": "ts-node generator/generateOpCodes.ts",
     "test": "npx jest"
   },
   "repository": {
@@ -35,8 +35,6 @@
   },
   "dependencies": {
     "arcsecond": "^5.0.0",
-    "assert": "^2.0.0",
-    "asserts": "^4.0.2",
     "bigint-conversion": "^2.2.2",
     "byte-data": "^19.0.1",
     "stats.js": "^0.17.0"

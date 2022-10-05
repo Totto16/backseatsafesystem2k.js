@@ -321,18 +321,18 @@ export function run(
 
     let stopVM = false
 
-    while (stopVM) {
+    while (!stopVM) {
         const currentTime = timer.getMsSinceEpoch()
         renderIfNeeded(currentTime, timeMeasurements, handle, machine)
 
-        const [averageFrequency, dontRender] = [
+        const [averageFrequency, notRender] = [
             timeMeasurements.clockFrequencyAverage,
             currentTime > timeMeasurements.nextRenderTime,
         ]
 
         let numCycles: u64
 
-        if (dontRender) {
+        if (notRender) {
             timeMeasurements.nextRenderTime = currentTime
             numCycles = 0n
         } else if (averageFrequency === 0n) {
@@ -343,8 +343,10 @@ export function run(
             const cycleDuration = 1000n / timeMeasurements.clockFrequencyAverage
             numCycles = remainingMsUntilNextRender / BigInt(cycleDuration) - 10n
         }
-
-        Array(numCycles).forEach((_) => executeNextInstruction(machine))
+        console.log(numCycles)
+        for (let i = 0; i < numCycles; ++i) {
+            executeNextInstruction(machine)
+        }
     }
 }
 

@@ -1,6 +1,5 @@
 // featuring Tom Hanks
 
-import assert from "assert"
 import {
     TERMINAL_CURSOR_POINTER,
     Address,
@@ -9,6 +8,8 @@ import {
 import { Cursor } from "./cursor"
 import { Display } from "./display"
 import { Memory } from "./memory"
+
+const assert  = console.assert;
 
 export const WIDTH: number = 80
 export const HEIGHT: number = 25
