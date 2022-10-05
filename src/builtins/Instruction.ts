@@ -61,3 +61,7 @@ export function toBEBytes(value: Instruction): InstructionBytes {
     saveAsBEBytes(array, 0, value)
     return Array.from(array) as InstructionBytes
 }
+
+export function toHexString(value: Instruction): string {
+    return Byte.toHexString(toBEBytes(value), true)
+}

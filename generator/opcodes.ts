@@ -1,5 +1,6 @@
 import * as Instruction from "./builtins/Instruction"
 import { Register } from "./processor"
+import * as Byte from "./builtins/Byte"
 import * as Word from "./builtins/Word"
 import { Address } from "./address_constants"
 import { u64 } from "./builtins/types"
@@ -11,28 +12,33 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
 
     constructor(instruction: Instruction.Instruction) {
         this.instruction = instruction
-        //TODO parse everything !!
-        this.name = "DebugBreak" as T
-        this.parsedInstruction = { cycles: -1n, opCode: -1, increment: false } as unknown as OPCodeDefinitions[T]
 
-        /*     macro_rules! registers_to_instruction {
-            // entrypoint with at least one element
-            ( $( $r:ident ),+ ) => {
-                registers_to_instruction!(@ $( $r ),+ v 48)
-            };
-            // entrypoint with zero elements
-            () => {
-                0 as Instruction
-            };
-            // inner invocation with more then one element
-            (@ $r:ident, $( $rest:ident ),+ v $v:expr ) => {
-                ( ($r.0 as Instruction) << ($v-8) | registers_to_instruction!(@ $( $rest ),+ v $v - 8 ) )
-            };
-            // inner invocation with exactly one element
-            (@ $r:ident v $v:expr ) => {
-                ( ($r.0 as Instruction) << ($v-8) )
-            };
-        } */
+        const name = OpCode.getNameByInstruction<T>(instruction)
+
+        this.name = name
+        this.parsedInstruction = opDefinitions[name]
+    }
+
+    static getNameByInstruction<T extends OpCodeNames = OpCodeNames>(
+        instruction: Instruction.Instruction
+    ): T {
+        const [code] = Instruction.toBEBytes(instruction) as [
+            OPCodeDefinitions[T]["opCode"],
+            ...any
+        ]
+
+        const value = (opMap as OpMap<T>)[code]
+        if (value === undefined) {
+            throw new Error(
+                `Instruction ${Instruction.toHexString(
+                    value
+                )} with OpCode ${Byte.toHexString([
+                    code,
+                ])} = ${code} is not a valid OPCode`
+            )
+        }
+
+        return value
     }
 
     asInstruction(): Instruction.Instruction {
@@ -51,6 +57,12 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         return this.parsedInstruction.increment
     }
 }
+
+export type OpMap<T extends OpCodeNames = OpCodeNames> = {
+    [key in OPCodeDefinitions[T]["opCode"]]: T
+}
+
+export type OpCodeNames = keyof typeof opDefinitions
 
 /* export type OPCodeBasicDefinition = {
     [key in OpCodeNames]: {
@@ -93,6 +105,25 @@ export function typeToDatatype(type: RegisterType): string {
             break
     }
 }
+
+/*     macro_rules! registers_to_instruction {
+            // entrypoint with at least one element
+            ( $( $r:ident ),+ ) => {
+                registers_to_instruction!(@ $( $r ),+ v 48)
+            };
+            // entrypoint with zero elements
+            () => {
+                0 as Instruction
+            };
+            // inner invocation with more then one element
+            (@ $r:ident, $( $rest:ident ),+ v $v:expr ) => {
+                ( ($r.0 as Instruction) << ($v-8) | registers_to_instruction!(@ $( $rest ),+ v $v - 8 ) )
+            };
+            // inner invocation with exactly one element
+            (@ $r:ident v $v:expr ) => {
+                ( ($r.0 as Instruction) << ($v-8) )
+            };
+        } */
 
 /*
 

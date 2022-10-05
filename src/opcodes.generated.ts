@@ -1,5 +1,6 @@
 import * as Instruction from "./builtins/Instruction"
 import { Register } from "./processor"
+import * as Byte from "./builtins/Byte"
 import * as Word from "./builtins/Word"
 import { Address } from "./address_constants"
 import { u64 } from "./builtins/types"
@@ -11,32 +12,33 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
 
     constructor(instruction: Instruction.Instruction) {
         this.instruction = instruction
-        //TODO parse everything !!
-        this.name = "DebugBreak" as T
-        this.parsedInstruction = {
-            cycles: 0n,
-            opCode: 0,
-            increment: false,
-        } as unknown as OPCodeDefinitions[T]
 
-        /*     macro_rules! registers_to_instruction {
-            // entrypoint with at least one element
-            ( $( $r:ident ),+ ) => {
-                registers_to_instruction!(@ $( $r ),+ v 48)
-            };
-            // entrypoint with zero elements
-            () => {
-                0 as Instruction
-            };
-            // inner invocation with more then one element
-            (@ $r:ident, $( $rest:ident ),+ v $v:expr ) => {
-                ( ($r.0 as Instruction) << ($v-8) | registers_to_instruction!(@ $( $rest ),+ v $v - 8 ) )
-            };
-            // inner invocation with exactly one element
-            (@ $r:ident v $v:expr ) => {
-                ( ($r.0 as Instruction) << ($v-8) )
-            };
-        } */
+        const name = OpCode.getNameByInstruction<T>(instruction)
+
+        this.name = name
+        this.parsedInstruction = opDefinitions[name]
+    }
+
+    static getNameByInstruction<T extends OpCodeNames = OpCodeNames>(
+        instruction: Instruction.Instruction
+    ): T {
+        const [code] = Instruction.toBEBytes(instruction) as [
+            OPCodeDefinitions[T]["opCode"],
+            ...any
+        ]
+
+        const value = (opMap as OpMap<T>)[code]
+        if (value === undefined) {
+            throw new Error(
+                `Instruction ${Instruction.toHexString(
+                    value
+                )} with OpCode ${Byte.toHexString([
+                    code,
+                ])} = ${code} is not a valid OPCode`
+            )
+        }
+
+        return value
     }
 
     asInstruction(): Instruction.Instruction {
@@ -55,6 +57,12 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         return this.parsedInstruction.increment
     }
 }
+
+export type OpMap<T extends OpCodeNames = OpCodeNames> = {
+    [key in OPCodeDefinitions[T]["opCode"]]: T
+}
+
+export type OpCodeNames = keyof typeof opDefinitions
 
 /* export type OPCodeBasicDefinition = {
     [key in OpCodeNames]: {
@@ -97,6 +105,25 @@ export function typeToDatatype(type: RegisterType): string {
             break
     }
 }
+
+/*     macro_rules! registers_to_instruction {
+            // entrypoint with at least one element
+            ( $( $r:ident ),+ ) => {
+                registers_to_instruction!(@ $( $r ),+ v 48)
+            };
+            // entrypoint with zero elements
+            () => {
+                0 as Instruction
+            };
+            // inner invocation with more then one element
+            (@ $r:ident, $( $rest:ident ),+ v $v:expr ) => {
+                ( ($r.0 as Instruction) << ($v-8) | registers_to_instruction!(@ $( $rest ),+ v $v - 8 ) )
+            };
+            // inner invocation with exactly one element
+            (@ $r:ident v $v:expr ) => {
+                ( ($r.0 as Instruction) << ($v-8) )
+            };
+        } */
 
 /*
 
@@ -393,964 +420,961 @@ opcodes!(
 
 export type OPCodeDefinitions = typeof opDefinitions
 
-export type OpCodeNames =
-    | "MoveRegisterImmediate"
-    | "MoveRegisterAddress"
-    | "MoveTargetSource"
-    | "MoveAddressRegister"
-    | "MoveTargetPointer"
-    | "MovePointerSource"
-    | "MoveByteRegisterAddress"
-    | "MoveByteAddressRegister"
-    | "MoveByteTargetPointer"
-    | "MoveBytePointerSource"
-    | "MoveHalfwordRegisterAddress"
-    | "MoveHalfwordAddressRegister"
-    | "MoveHalfwordTargetPointer"
-    | "MoveHalfwordPointerSource"
-    | "MovePointerSourceOffset"
-    | "MoveBytePointerSourceOffset"
-    | "MoveHalfwordPointerSourceOffset"
-    | "MoveTargetPointerOffset"
-    | "MoveByteTargetPointerOffset"
-    | "MoveHalfwordTargetPointerOffset"
-    | "HaltAndCatchFire"
-    | "AddTargetLhsRhs"
-    | "AddWithCarryTargetLhsRhs"
-    | "SubtractTargetLhsRhs"
-    | "SubtractWithCarryTargetLhsRhs"
-    | "MultiplyHighLowLhsRhs"
-    | "DivmodTargetModLhsRhs"
-    | "AndTargetLhsRhs"
-    | "OrTargetLhsRhs"
-    | "XorTargetLhsRhs"
-    | "NotTargetSource"
-    | "LeftShiftTargetLhsRhs"
-    | "RightShiftTargetLhsRhs"
-    | "AddTargetSourceImmediate"
-    | "SubtractTargetSourceImmediate"
-    | "CompareTargetLhsRhs"
-    | "BoolCompareEquals"
-    | "BoolCompareNotEquals"
-    | "BoolCompareGreater"
-    | "BoolCompareGreaterOrEquals"
-    | "BoolCompareLess"
-    | "BoolCompareLessOrEquals"
-    | "PushRegister"
-    | "PushImmediate"
-    | "PopRegister"
-    | "Pop"
-    | "CallAddress"
-    | "CallRegister"
-    | "CallPointer"
-    | "Return"
-    | "JumpImmediate"
-    | "JumpRegister"
-    | "JumpImmediateIfEqual"
-    | "JumpImmediateIfGreaterThan"
-    | "JumpImmediateIfLessThan"
-    | "JumpImmediateIfGreaterThanOrEqual"
-    | "JumpImmediateIfLessThanOrEqual"
-    | "JumpImmediateIfZero"
-    | "JumpImmediateIfNotZero"
-    | "JumpImmediateIfCarry"
-    | "JumpImmediateIfNotCarry"
-    | "JumpImmediateIfDivideByZero"
-    | "JumpImmediateIfNotDivideByZero"
-    | "JumpRegisterIfEqual"
-    | "JumpRegisterIfGreaterThan"
-    | "JumpRegisterIfLessThan"
-    | "JumpRegisterIfGreaterThanOrEqual"
-    | "JumpRegisterIfLessThanOrEqual"
-    | "JumpRegisterIfZero"
-    | "JumpRegisterIfNotZero"
-    | "JumpRegisterIfCarry"
-    | "JumpRegisterIfNotCarry"
-    | "JumpRegisterIfDivideByZero"
-    | "JumpRegisterIfNotDivideByZero"
-    | "NoOp"
-    | "GetKeyState"
-    | "PollTime"
-    | "SwapFramebuffers"
-    | "InvisibleFramebufferAddress"
-    | "PollCycleCountHighLow"
-    | "DumpRegisters"
-    | "DumpMemory"
-    | "AssertRegisterRegister"
-    | "AssertRegisterImmediate"
-    | "AssertPointerImmediate"
-    | "DebugBreak"
-    | "PrintRegister"
-    | "Checkpoint"
+export const opDefinitions = {/**
+* @description move the value C into register R
+*/
+MoveRegisterImmediate : {
+cycles : 1n,
+opCode : 0,
+increment : true,
+immediate : 2,
+register : Register.fromLetter("R")
+},
+/**
+* @description move the value at address A into register R
+*/
+MoveRegisterAddress : {
+cycles : 1n,
+opCode : 1,
+increment : true,
+source_address : 2,
+register : Register.fromLetter("R")
+},
+/**
+* @description move the contents of register S into register T
+*/
+MoveTargetSource : {
+cycles : 1n,
+opCode : 2,
+increment : true,
+target : Register.fromLetter("T"),
+source : Register.fromLetter("S")
+},
+/**
+* @description move the contents of register R into memory at address A
+*/
+MoveAddressRegister : {
+cycles : 1n,
+opCode : 3,
+increment : true,
+target_address : 2,
+register : Register.fromLetter("R")
+},
+/**
+* @description move the contents addressed by the value of register P into register T
+*/
+MoveTargetPointer : {
+cycles : 1n,
+opCode : 4,
+increment : true,
+target : Register.fromLetter("T"),
+pointer : Register.fromLetter("P")
+},
+/**
+* @description move the contents of register S into memory at address specified by register P
+*/
+MovePointerSource : {
+cycles : 1n,
+opCode : 5,
+increment : true,
+pointer : Register.fromLetter("P"),
+source : Register.fromLetter("S")
+},
+/**
+* @description move the value at address A into register R (1 byte)
+*/
+MoveByteRegisterAddress : {
+cycles : 1n,
+opCode : 65,
+increment : true,
+source_address : 2,
+register : Register.fromLetter("R")
+},
+/**
+* @description move the contents of register R into memory at address A (1 byte)
+*/
+MoveByteAddressRegister : {
+cycles : 1n,
+opCode : 66,
+increment : true,
+target_address : 2,
+register : Register.fromLetter("R")
+},
+/**
+* @description move the contents addressed by the value of register P into register T (1 byte)
+*/
+MoveByteTargetPointer : {
+cycles : 1n,
+opCode : 67,
+increment : true,
+target : Register.fromLetter("T"),
+pointer : Register.fromLetter("P")
+},
+/**
+* @description move the contents of register S into memory at address specified by register P (1 byte)
+*/
+MoveBytePointerSource : {
+cycles : 1n,
+opCode : 68,
+increment : true,
+pointer : Register.fromLetter("P"),
+source : Register.fromLetter("S")
+},
+/**
+* @description move the value at address A into register R (2 bytes)
+*/
+MoveHalfwordRegisterAddress : {
+cycles : 1n,
+opCode : 69,
+increment : true,
+source_address : 2,
+register : Register.fromLetter("R")
+},
+/**
+* @description move the contents of register R into memory at address A (2 bytes)
+*/
+MoveHalfwordAddressRegister : {
+cycles : 1n,
+opCode : 70,
+increment : true,
+target_address : 2,
+register : Register.fromLetter("R")
+},
+/**
+* @description move the contents addressed by the value of register P into register T (2 bytes)
+*/
+MoveHalfwordTargetPointer : {
+cycles : 1n,
+opCode : 71,
+increment : true,
+target : Register.fromLetter("T"),
+pointer : Register.fromLetter("P")
+},
+/**
+* @description move the contents of register S into memory at address specified by register P (2 bytes)
+*/
+MoveHalfwordPointerSource : {
+cycles : 1n,
+opCode : 72,
+increment : true,
+pointer : Register.fromLetter("P"),
+source : Register.fromLetter("S")
+},
+/**
+* @description move the value in register S into memory at address pointer + immediate
+*/
+MovePointerSourceOffset : {
+cycles : 1n,
+opCode : 73,
+increment : true,
+immediate : 2,
+pointer : Register.fromLetter("P"),
+source : Register.fromLetter("S")
+},
+/**
+* @description move the value in register S into memory at address pointer + immediate (1 byte)
+*/
+MoveBytePointerSourceOffset : {
+cycles : 1n,
+opCode : 74,
+increment : true,
+immediate : 2,
+pointer : Register.fromLetter("P"),
+source : Register.fromLetter("S")
+},
+/**
+* @description move the value in register S into memory at address pointer + immediate (2 bytes)
+*/
+MoveHalfwordPointerSourceOffset : {
+cycles : 1n,
+opCode : 75,
+increment : true,
+immediate : 2,
+pointer : Register.fromLetter("P"),
+source : Register.fromLetter("S")
+},
+/**
+* @description move the contents addressed by the sum of the pointer and the immediate into the register T
+*/
+MoveTargetPointerOffset : {
+cycles : 1n,
+opCode : 76,
+increment : true,
+immediate : 2,
+target : Register.fromLetter("T"),
+pointer : Register.fromLetter("P")
+},
+/**
+* @description move the contents addressed by the sum of the pointer and the immediate into the register T
+*/
+MoveByteTargetPointerOffset : {
+cycles : 1n,
+opCode : 77,
+increment : true,
+immediate : 2,
+target : Register.fromLetter("T"),
+pointer : Register.fromLetter("P")
+},
+/**
+* @description move the contents addressed by the sum of the pointer and the immediate into the register T
+*/
+MoveHalfwordTargetPointerOffset : {
+cycles : 1n,
+opCode : 78,
+increment : true,
+immediate : 2,
+target : Register.fromLetter("T"),
+pointer : Register.fromLetter("P")
+},
+/**
+* @description halt and catch fire
+*/
+HaltAndCatchFire : {
+cycles : 1n,
+opCode : 6,
+increment : false
+},
+/**
+* @description add the values in registers L and R, store the result in T, set zero and carry flags appropriately
+*/
+AddTargetLhsRhs : {
+cycles : 1n,
+opCode : 7,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description add (with carry) the values in registers L and R, store the result in T, set zero and carry flags appropriately
+*/
+AddWithCarryTargetLhsRhs : {
+cycles : 1n,
+opCode : 52,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description subtract (without carry) the values in registers L and R, store the result in T, set zero and carry flags appropriately
+*/
+SubtractTargetLhsRhs : {
+cycles : 1n,
+opCode : 8,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description subtract (with carry) the values in registers L and R, store the result in T, set zero and carry flags appropriately
+*/
+SubtractWithCarryTargetLhsRhs : {
+cycles : 1n,
+opCode : 9,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description multiply the values in registers L and R, store the low part of the result in T, the high part in H, set zero and carry flags appropriately
+*/
+MultiplyHighLowLhsRhs : {
+cycles : 1n,
+opCode : 10,
+increment : true,
+high : Register.fromLetter("H"),
+low : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description divmod the values in registers L and R, store the result in D and the remainder in M set zero and divide-by-zero flags appropriately
+*/
+DivmodTargetModLhsRhs : {
+cycles : 1n,
+opCode : 11,
+increment : true,
+result : Register.fromLetter("D"),
+remainder : Register.fromLetter("M"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description and the values in registers LL and RR, store the result in TT, set zero flag appropriately
+*/
+AndTargetLhsRhs : {
+cycles : 1n,
+opCode : 12,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description or the values in registers LL and RR, store the result in TT, set zero flag appropriately
+*/
+OrTargetLhsRhs : {
+cycles : 1n,
+opCode : 13,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description xor the values in registers LL and RR, store the result in TT, set zero flag appropriately
+*/
+XorTargetLhsRhs : {
+cycles : 1n,
+opCode : 14,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description not the value in register SS, store the result in TT, set zero flag appropriately
+*/
+NotTargetSource : {
+cycles : 1n,
+opCode : 15,
+increment : true,
+target : Register.fromLetter("T"),
+source : Register.fromLetter("S")
+},
+/**
+* @description left shift the value in register LL by RR bits, store the result in TT, set zero and carry flags appropriately
+*/
+LeftShiftTargetLhsRhs : {
+cycles : 1n,
+opCode : 16,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description right shift the value in register LL by RR bits, store the result in TT, set zero and carry flags appropriately
+*/
+RightShiftTargetLhsRhs : {
+cycles : 1n,
+opCode : 17,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description add the constant CC to the value in register SS and store the result in TT, set zero and carry flags appropriately
+*/
+AddTargetSourceImmediate : {
+cycles : 1n,
+opCode : 18,
+increment : true,
+immediate : 2,
+target : Register.fromLetter("T"),
+source : Register.fromLetter("S")
+},
+/**
+* @description subtract the constant CC from the value in register SS and store the result in TT, set zero and carry flags appropriately
+*/
+SubtractTargetSourceImmediate : {
+cycles : 1n,
+opCode : 19,
+increment : true,
+immediate : 2,
+target : Register.fromLetter("T"),
+source : Register.fromLetter("S")
+},
+/**
+* @description compare the values in registers LL and RR, store the result (Word::MAX, 0, 1) in TT, set zero flag appropriately
+*/
+CompareTargetLhsRhs : {
+cycles : 1n,
+opCode : 20,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description checks whether the values in registers L and R are equal and stores the result as boolean (0 or 1) in T
+*/
+BoolCompareEquals : {
+cycles : 1n,
+opCode : 58,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description checks whether the values in registers L and R are not equal and stores the result as boolean (0 or 1) in T
+*/
+BoolCompareNotEquals : {
+cycles : 1n,
+opCode : 59,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description checks whether the value in registers L is greater than the value in register R and stores the result as boolean (0 or 1) in T
+*/
+BoolCompareGreater : {
+cycles : 1n,
+opCode : 60,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description checks whether the value in registers L is greater than or equals the value in register R and stores the result as boolean (0 or 1) in T
+*/
+BoolCompareGreaterOrEquals : {
+cycles : 1n,
+opCode : 61,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description checks whether the value in registers L is less than the value in register R and stores the result as boolean (0 or 1) in T
+*/
+BoolCompareLess : {
+cycles : 1n,
+opCode : 62,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description checks whether the value in registers L is less than or equals the value in register R and stores the result as boolean (0 or 1) in T
+*/
+BoolCompareLessOrEquals : {
+cycles : 1n,
+opCode : 63,
+increment : true,
+target : Register.fromLetter("T"),
+lhs : Register.fromLetter("L"),
+rhs : Register.fromLetter("R")
+},
+/**
+* @description pushes the value of register RR onto the stack
+*/
+PushRegister : {
+cycles : 1n,
+opCode : 21,
+increment : true,
+register : Register.fromLetter("R")
+},
+/**
+* @description pushes the immediate value onto the stack
+*/
+PushImmediate : {
+cycles : 1n,
+opCode : 79,
+increment : true,
+immediate : 2
+},
+/**
+* @description pops from the stack and stores the value in register RR
+*/
+PopRegister : {
+cycles : 1n,
+opCode : 22,
+increment : true,
+register : Register.fromLetter("R")
+},
+/**
+* @description pops from the stack and discards the value
+*/
+Pop : {
+cycles : 1n,
+opCode : 64,
+increment : true
+},
+/**
+* @description push the current instruction pointer onto the stack and jump to the specified address
+*/
+CallAddress : {
+cycles : 1n,
+opCode : 23,
+increment : false,
+source_address : 2
+},
+/**
+* @description push the current instruction pointer onto the stack and jump to the address stored in register R
+*/
+CallRegister : {
+cycles : 1n,
+opCode : 54,
+increment : false,
+register : Register.fromLetter("R")
+},
+/**
+* @description push the current instruction pointer onto the stack and jump to the address stored in memory at the location specified by the value in register P
+*/
+CallPointer : {
+cycles : 1n,
+opCode : 55,
+increment : false,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description pop the return address from the stack and jump to it
+*/
+Return : {
+cycles : 1n,
+opCode : 24,
+increment : false
+},
+/**
+* @description jump to the given address
+*/
+JumpImmediate : {
+cycles : 1n,
+opCode : 25,
+increment : false,
+immediate : 2
+},
+/**
+* @description jump to the address stored in register R
+*/
+JumpRegister : {
+cycles : 1n,
+opCode : 26,
+increment : false,
+register : Register.fromLetter("R")
+},
+/**
+* @description jump to the specified address if the comparison result in register C corresponds to \"equality\"
+*/
+JumpImmediateIfEqual : {
+cycles : 1n,
+opCode : 27,
+increment : false,
+immediate : 2,
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the specified address if the comparison result in register C corresponds to \"greater than\"
+*/
+JumpImmediateIfGreaterThan : {
+cycles : 1n,
+opCode : 28,
+increment : false,
+immediate : 2,
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the specified address if the comparison result in register C corresponds to \"less than\"
+*/
+JumpImmediateIfLessThan : {
+cycles : 1n,
+opCode : 29,
+increment : false,
+immediate : 2,
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the specified address if the comparison result in register C corresponds to \"greater than\" or \"equal\"
+*/
+JumpImmediateIfGreaterThanOrEqual : {
+cycles : 1n,
+opCode : 30,
+increment : false,
+immediate : 2,
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the specified address if the comparison result in register C corresponds to \"less than\" or \"equal\"
+*/
+JumpImmediateIfLessThanOrEqual : {
+cycles : 1n,
+opCode : 31,
+increment : false,
+immediate : 2,
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the specified address if the zero flag is set
+*/
+JumpImmediateIfZero : {
+cycles : 1n,
+opCode : 32,
+increment : false,
+immediate : 2
+},
+/**
+* @description jump to the specified address if the zero flag is not set
+*/
+JumpImmediateIfNotZero : {
+cycles : 1n,
+opCode : 33,
+increment : false,
+immediate : 2
+},
+/**
+* @description jump to the specified address if the carry flag is set
+*/
+JumpImmediateIfCarry : {
+cycles : 1n,
+opCode : 34,
+increment : false,
+immediate : 2
+},
+/**
+* @description jump to the specified address if the carry flag is not set
+*/
+JumpImmediateIfNotCarry : {
+cycles : 1n,
+opCode : 35,
+increment : false,
+immediate : 2
+},
+/**
+* @description jump to the specified address if the divide by zero flag is set
+*/
+JumpImmediateIfDivideByZero : {
+cycles : 1n,
+opCode : 36,
+increment : false,
+immediate : 2
+},
+/**
+* @description jump to the specified address if the divide by zero flag is not set
+*/
+JumpImmediateIfNotDivideByZero : {
+cycles : 1n,
+opCode : 37,
+increment : false,
+immediate : 2
+},
+/**
+* @description jump to the address specified in register P if the comparison result in register C corresponds to \"equality\"
+*/
+JumpRegisterIfEqual : {
+cycles : 1n,
+opCode : 38,
+increment : false,
+pointer : Register.fromLetter("P"),
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the address specified in register P if the comparison result in register C corresponds to \"greater than\"
+*/
+JumpRegisterIfGreaterThan : {
+cycles : 1n,
+opCode : 39,
+increment : false,
+pointer : Register.fromLetter("P"),
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the address specified in register P if the comparison result in register C corresponds to \"less than\"
+*/
+JumpRegisterIfLessThan : {
+cycles : 1n,
+opCode : 40,
+increment : false,
+pointer : Register.fromLetter("P"),
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the address specified in register P if the comparison result in register C corresponds to \"greater than\" or \"equal\"
+*/
+JumpRegisterIfGreaterThanOrEqual : {
+cycles : 1n,
+opCode : 41,
+increment : false,
+pointer : Register.fromLetter("P"),
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the address specified in register P if the comparison result in register C corresponds to \"less than\" or \"equal\"
+*/
+JumpRegisterIfLessThanOrEqual : {
+cycles : 1n,
+opCode : 42,
+increment : false,
+pointer : Register.fromLetter("P"),
+comparison : Register.fromLetter("C")
+},
+/**
+* @description jump to the address specified in register P if the zero flag is set
+*/
+JumpRegisterIfZero : {
+cycles : 1n,
+opCode : 43,
+increment : false,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description jump to the address specified in register P if the zero flag is not set
+*/
+JumpRegisterIfNotZero : {
+cycles : 1n,
+opCode : 44,
+increment : false,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description jump to the address specified in register P if the carry flag is set
+*/
+JumpRegisterIfCarry : {
+cycles : 1n,
+opCode : 45,
+increment : false,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description jump to the address specified in register P if the carry flag is not set
+*/
+JumpRegisterIfNotCarry : {
+cycles : 1n,
+opCode : 46,
+increment : false,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description jump to the address specified in register P if the divide by zero flag is set
+*/
+JumpRegisterIfDivideByZero : {
+cycles : 1n,
+opCode : 47,
+increment : false,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description jump to the address specified in register P if the divide by zero flag is not set
+*/
+JumpRegisterIfNotDivideByZero : {
+cycles : 1n,
+opCode : 48,
+increment : false,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description does nothing
+*/
+NoOp : {
+cycles : 1n,
+opCode : 49,
+increment : true
+},
+/**
+* @description store the keystate (1 = held down, 0 = not held down) of the key specified by register K into register T and set the zero flag appropriately
+*/
+GetKeyState : {
+cycles : 1n,
+opCode : 50,
+increment : true,
+target : Register.fromLetter("T"),
+keycode : Register.fromLetter("K")
+},
+/**
+* @description store the number of milliseconds since the UNIX epoch into registers high and low
+*/
+PollTime : {
+cycles : 1n,
+opCode : 51,
+increment : true,
+high : Register.fromLetter("H"),
+low : Register.fromLetter("L")
+},
+/**
+* @description swap the display buffers
+*/
+SwapFramebuffers : {
+cycles : 1n,
+opCode : 53,
+increment : true
+},
+/**
+* @description get the start address of the framebuffer that's currently invisible (use the address to draw without tearing)
+*/
+InvisibleFramebufferAddress : {
+cycles : 1n,
+opCode : 56,
+increment : true,
+target : Register.fromLetter("T")
+},
+/**
+* @description store the current cycle (64 bit value) count into registers H and L (H: most significant bytes, L: least significant bytes)
+*/
+PollCycleCountHighLow : {
+cycles : 1n,
+opCode : 57,
+increment : true,
+high : Register.fromLetter("H"),
+low : Register.fromLetter("L")
+},
+/**
+* @description dump the contents of all registers into the file 'registers_YYYY-MM-DD_X.bin' where YYYY-MM-DD is the current date and X is an increasing number
+*/
+DumpRegisters : {
+cycles : 1n,
+opCode : 65535,
+increment : true
+},
+/**
+* @description dump the contents of the whole memory into the file 'memory_YYYY-MM-DD_X.bin' where YYYY-MM-DD is the current date and X is an increasing number
+*/
+DumpMemory : {
+cycles : 1n,
+opCode : 65534,
+increment : true
+},
+/**
+* @description assert that the expected register value equals the actual register value (behavior of the VM on a failed assertion is implementation defined)
+*/
+AssertRegisterRegister : {
+cycles : 1n,
+opCode : 65533,
+increment : true,
+expected : Register.fromLetter("E"),
+actual : Register.fromLetter("A")
+},
+/**
+* @description assert that the actual register value equals the immediate (behavior of the VM on a failed assertion is implementation defined)
+*/
+AssertRegisterImmediate : {
+cycles : 1n,
+opCode : 65532,
+increment : true,
+immediate : 2,
+actual : Register.fromLetter("A")
+},
+/**
+* @description assert that the value in memory pointed at by P equals the immediate (behavior of the VM on a failed assertion is implementation defined)
+*/
+AssertPointerImmediate : {
+cycles : 1n,
+opCode : 65531,
+increment : true,
+immediate : 2,
+pointer : Register.fromLetter("P")
+},
+/**
+* @description behavior is implementation defined
+*/
+DebugBreak : {
+cycles : 1n,
+opCode : 65530,
+increment : true
+},
+/**
+* @description prints the value of the register as debug output
+*/
+PrintRegister : {
+cycles : 1n,
+opCode : 65529,
+increment : true,
+register : Register.fromLetter("R")
+},
+/**
+* @description makes the emulator check the value of the internal checkpoint counter, fails on mismatch
+*/
+Checkpoint : {
+cycles : 1n,
+opCode : 65528,
+increment : true,
+immediate : 2
+}}
 
-export const opDefinitions = {
-    /**
-     * @description move the value C into register R
-     */
-    MoveRegisterImmediate: {
-        cycles: 1n,
-        opCode: 0,
-        increment: true,
-        immediate: 2,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description move the value at address A into register R
-     */
-    MoveRegisterAddress: {
-        cycles: 1n,
-        opCode: 1,
-        increment: true,
-        source_address: 2,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description move the contents of register S into register T
-     */
-    MoveTargetSource: {
-        cycles: 1n,
-        opCode: 2,
-        increment: true,
-        target: Register.fromLetter("T"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description move the contents of register R into memory at address A
-     */
-    MoveAddressRegister: {
-        cycles: 1n,
-        opCode: 3,
-        increment: true,
-        target_address: 2,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description move the contents addressed by the value of register P into register T
-     */
-    MoveTargetPointer: {
-        cycles: 1n,
-        opCode: 4,
-        increment: true,
-        target: Register.fromLetter("T"),
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description move the contents of register S into memory at address specified by register P
-     */
-    MovePointerSource: {
-        cycles: 1n,
-        opCode: 5,
-        increment: true,
-        pointer: Register.fromLetter("P"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description move the value at address A into register R (1 byte)
-     */
-    MoveByteRegisterAddress: {
-        cycles: 1n,
-        opCode: 65,
-        increment: true,
-        source_address: 2,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description move the contents of register R into memory at address A (1 byte)
-     */
-    MoveByteAddressRegister: {
-        cycles: 1n,
-        opCode: 66,
-        increment: true,
-        target_address: 2,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description move the contents addressed by the value of register P into register T (1 byte)
-     */
-    MoveByteTargetPointer: {
-        cycles: 1n,
-        opCode: 67,
-        increment: true,
-        target: Register.fromLetter("T"),
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description move the contents of register S into memory at address specified by register P (1 byte)
-     */
-    MoveBytePointerSource: {
-        cycles: 1n,
-        opCode: 68,
-        increment: true,
-        pointer: Register.fromLetter("P"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description move the value at address A into register R (2 bytes)
-     */
-    MoveHalfwordRegisterAddress: {
-        cycles: 1n,
-        opCode: 69,
-        increment: true,
-        source_address: 2,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description move the contents of register R into memory at address A (2 bytes)
-     */
-    MoveHalfwordAddressRegister: {
-        cycles: 1n,
-        opCode: 70,
-        increment: true,
-        target_address: 2,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description move the contents addressed by the value of register P into register T (2 bytes)
-     */
-    MoveHalfwordTargetPointer: {
-        cycles: 1n,
-        opCode: 71,
-        increment: true,
-        target: Register.fromLetter("T"),
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description move the contents of register S into memory at address specified by register P (2 bytes)
-     */
-    MoveHalfwordPointerSource: {
-        cycles: 1n,
-        opCode: 72,
-        increment: true,
-        pointer: Register.fromLetter("P"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description move the value in register S into memory at address pointer + immediate
-     */
-    MovePointerSourceOffset: {
-        cycles: 1n,
-        opCode: 73,
-        increment: true,
-        immediate: 2,
-        pointer: Register.fromLetter("P"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description move the value in register S into memory at address pointer + immediate (1 byte)
-     */
-    MoveBytePointerSourceOffset: {
-        cycles: 1n,
-        opCode: 74,
-        increment: true,
-        immediate: 2,
-        pointer: Register.fromLetter("P"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description move the value in register S into memory at address pointer + immediate (2 bytes)
-     */
-    MoveHalfwordPointerSourceOffset: {
-        cycles: 1n,
-        opCode: 75,
-        increment: true,
-        immediate: 2,
-        pointer: Register.fromLetter("P"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description move the contents addressed by the sum of the pointer and the immediate into the register T
-     */
-    MoveTargetPointerOffset: {
-        cycles: 1n,
-        opCode: 76,
-        increment: true,
-        immediate: 2,
-        target: Register.fromLetter("T"),
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description move the contents addressed by the sum of the pointer and the immediate into the register T
-     */
-    MoveByteTargetPointerOffset: {
-        cycles: 1n,
-        opCode: 77,
-        increment: true,
-        immediate: 2,
-        target: Register.fromLetter("T"),
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description move the contents addressed by the sum of the pointer and the immediate into the register T
-     */
-    MoveHalfwordTargetPointerOffset: {
-        cycles: 1n,
-        opCode: 78,
-        increment: true,
-        immediate: 2,
-        target: Register.fromLetter("T"),
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description halt and catch fire
-     */
-    HaltAndCatchFire: {
-        cycles: 1n,
-        opCode: 6,
-        increment: false,
-    },
-    /**
-     * @description add the values in registers L and R, store the result in T, set zero and carry flags appropriately
-     */
-    AddTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 7,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description add (with carry) the values in registers L and R, store the result in T, set zero and carry flags appropriately
-     */
-    AddWithCarryTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 52,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description subtract (without carry) the values in registers L and R, store the result in T, set zero and carry flags appropriately
-     */
-    SubtractTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 8,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description subtract (with carry) the values in registers L and R, store the result in T, set zero and carry flags appropriately
-     */
-    SubtractWithCarryTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 9,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description multiply the values in registers L and R, store the low part of the result in T, the high part in H, set zero and carry flags appropriately
-     */
-    MultiplyHighLowLhsRhs: {
-        cycles: 1n,
-        opCode: 10,
-        increment: true,
-        high: Register.fromLetter("H"),
-        low: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description divmod the values in registers L and R, store the result in D and the remainder in M set zero and divide-by-zero flags appropriately
-     */
-    DivmodTargetModLhsRhs: {
-        cycles: 1n,
-        opCode: 11,
-        increment: true,
-        result: Register.fromLetter("D"),
-        remainder: Register.fromLetter("M"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description and the values in registers LL and RR, store the result in TT, set zero flag appropriately
-     */
-    AndTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 12,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description or the values in registers LL and RR, store the result in TT, set zero flag appropriately
-     */
-    OrTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 13,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description xor the values in registers LL and RR, store the result in TT, set zero flag appropriately
-     */
-    XorTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 14,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description not the value in register SS, store the result in TT, set zero flag appropriately
-     */
-    NotTargetSource: {
-        cycles: 1n,
-        opCode: 15,
-        increment: true,
-        target: Register.fromLetter("T"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description left shift the value in register LL by RR bits, store the result in TT, set zero and carry flags appropriately
-     */
-    LeftShiftTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 16,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description right shift the value in register LL by RR bits, store the result in TT, set zero and carry flags appropriately
-     */
-    RightShiftTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 17,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description add the constant CC to the value in register SS and store the result in TT, set zero and carry flags appropriately
-     */
-    AddTargetSourceImmediate: {
-        cycles: 1n,
-        opCode: 18,
-        increment: true,
-        immediate: 2,
-        target: Register.fromLetter("T"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description subtract the constant CC from the value in register SS and store the result in TT, set zero and carry flags appropriately
-     */
-    SubtractTargetSourceImmediate: {
-        cycles: 1n,
-        opCode: 19,
-        increment: true,
-        immediate: 2,
-        target: Register.fromLetter("T"),
-        source: Register.fromLetter("S"),
-    },
-    /**
-     * @description compare the values in registers LL and RR, store the result (Word::MAX, 0, 1) in TT, set zero flag appropriately
-     */
-    CompareTargetLhsRhs: {
-        cycles: 1n,
-        opCode: 20,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description checks whether the values in registers L and R are equal and stores the result as boolean (0 or 1) in T
-     */
-    BoolCompareEquals: {
-        cycles: 1n,
-        opCode: 58,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description checks whether the values in registers L and R are not equal and stores the result as boolean (0 or 1) in T
-     */
-    BoolCompareNotEquals: {
-        cycles: 1n,
-        opCode: 59,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description checks whether the value in registers L is greater than the value in register R and stores the result as boolean (0 or 1) in T
-     */
-    BoolCompareGreater: {
-        cycles: 1n,
-        opCode: 60,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description checks whether the value in registers L is greater than or equals the value in register R and stores the result as boolean (0 or 1) in T
-     */
-    BoolCompareGreaterOrEquals: {
-        cycles: 1n,
-        opCode: 61,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description checks whether the value in registers L is less than the value in register R and stores the result as boolean (0 or 1) in T
-     */
-    BoolCompareLess: {
-        cycles: 1n,
-        opCode: 62,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description checks whether the value in registers L is less than or equals the value in register R and stores the result as boolean (0 or 1) in T
-     */
-    BoolCompareLessOrEquals: {
-        cycles: 1n,
-        opCode: 63,
-        increment: true,
-        target: Register.fromLetter("T"),
-        lhs: Register.fromLetter("L"),
-        rhs: Register.fromLetter("R"),
-    },
-    /**
-     * @description pushes the value of register RR onto the stack
-     */
-    PushRegister: {
-        cycles: 1n,
-        opCode: 21,
-        increment: true,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description pushes the immediate value onto the stack
-     */
-    PushImmediate: {
-        cycles: 1n,
-        opCode: 79,
-        increment: true,
-        immediate: 2,
-    },
-    /**
-     * @description pops from the stack and stores the value in register RR
-     */
-    PopRegister: {
-        cycles: 1n,
-        opCode: 22,
-        increment: true,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description pops from the stack and discards the value
-     */
-    Pop: {
-        cycles: 1n,
-        opCode: 64,
-        increment: true,
-    },
-    /**
-     * @description push the current instruction pointer onto the stack and jump to the specified address
-     */
-    CallAddress: {
-        cycles: 1n,
-        opCode: 23,
-        increment: false,
-        source_address: 2,
-    },
-    /**
-     * @description push the current instruction pointer onto the stack and jump to the address stored in register R
-     */
-    CallRegister: {
-        cycles: 1n,
-        opCode: 54,
-        increment: false,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description push the current instruction pointer onto the stack and jump to the address stored in memory at the location specified by the value in register P
-     */
-    CallPointer: {
-        cycles: 1n,
-        opCode: 55,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description pop the return address from the stack and jump to it
-     */
-    Return: {
-        cycles: 1n,
-        opCode: 24,
-        increment: false,
-    },
-    /**
-     * @description jump to the given address
-     */
-    JumpImmediate: {
-        cycles: 1n,
-        opCode: 25,
-        increment: false,
-        immediate: 2,
-    },
-    /**
-     * @description jump to the address stored in register R
-     */
-    JumpRegister: {
-        cycles: 1n,
-        opCode: 26,
-        increment: false,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description jump to the specified address if the comparison result in register C corresponds to \"equality\"
-     */
-    JumpImmediateIfEqual: {
-        cycles: 1n,
-        opCode: 27,
-        increment: false,
-        immediate: 2,
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the specified address if the comparison result in register C corresponds to \"greater than\"
-     */
-    JumpImmediateIfGreaterThan: {
-        cycles: 1n,
-        opCode: 28,
-        increment: false,
-        immediate: 2,
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the specified address if the comparison result in register C corresponds to \"less than\"
-     */
-    JumpImmediateIfLessThan: {
-        cycles: 1n,
-        opCode: 29,
-        increment: false,
-        immediate: 2,
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the specified address if the comparison result in register C corresponds to \"greater than\" or \"equal\"
-     */
-    JumpImmediateIfGreaterThanOrEqual: {
-        cycles: 1n,
-        opCode: 30,
-        increment: false,
-        immediate: 2,
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the specified address if the comparison result in register C corresponds to \"less than\" or \"equal\"
-     */
-    JumpImmediateIfLessThanOrEqual: {
-        cycles: 1n,
-        opCode: 31,
-        increment: false,
-        immediate: 2,
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the specified address if the zero flag is set
-     */
-    JumpImmediateIfZero: {
-        cycles: 1n,
-        opCode: 32,
-        increment: false,
-        immediate: 2,
-    },
-    /**
-     * @description jump to the specified address if the zero flag is not set
-     */
-    JumpImmediateIfNotZero: {
-        cycles: 1n,
-        opCode: 33,
-        increment: false,
-        immediate: 2,
-    },
-    /**
-     * @description jump to the specified address if the carry flag is set
-     */
-    JumpImmediateIfCarry: {
-        cycles: 1n,
-        opCode: 34,
-        increment: false,
-        immediate: 2,
-    },
-    /**
-     * @description jump to the specified address if the carry flag is not set
-     */
-    JumpImmediateIfNotCarry: {
-        cycles: 1n,
-        opCode: 35,
-        increment: false,
-        immediate: 2,
-    },
-    /**
-     * @description jump to the specified address if the divide by zero flag is set
-     */
-    JumpImmediateIfDivideByZero: {
-        cycles: 1n,
-        opCode: 36,
-        increment: false,
-        immediate: 2,
-    },
-    /**
-     * @description jump to the specified address if the divide by zero flag is not set
-     */
-    JumpImmediateIfNotDivideByZero: {
-        cycles: 1n,
-        opCode: 37,
-        increment: false,
-        immediate: 2,
-    },
-    /**
-     * @description jump to the address specified in register P if the comparison result in register C corresponds to \"equality\"
-     */
-    JumpRegisterIfEqual: {
-        cycles: 1n,
-        opCode: 38,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the address specified in register P if the comparison result in register C corresponds to \"greater than\"
-     */
-    JumpRegisterIfGreaterThan: {
-        cycles: 1n,
-        opCode: 39,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the address specified in register P if the comparison result in register C corresponds to \"less than\"
-     */
-    JumpRegisterIfLessThan: {
-        cycles: 1n,
-        opCode: 40,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the address specified in register P if the comparison result in register C corresponds to \"greater than\" or \"equal\"
-     */
-    JumpRegisterIfGreaterThanOrEqual: {
-        cycles: 1n,
-        opCode: 41,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the address specified in register P if the comparison result in register C corresponds to \"less than\" or \"equal\"
-     */
-    JumpRegisterIfLessThanOrEqual: {
-        cycles: 1n,
-        opCode: 42,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-        comparison: Register.fromLetter("C"),
-    },
-    /**
-     * @description jump to the address specified in register P if the zero flag is set
-     */
-    JumpRegisterIfZero: {
-        cycles: 1n,
-        opCode: 43,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description jump to the address specified in register P if the zero flag is not set
-     */
-    JumpRegisterIfNotZero: {
-        cycles: 1n,
-        opCode: 44,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description jump to the address specified in register P if the carry flag is set
-     */
-    JumpRegisterIfCarry: {
-        cycles: 1n,
-        opCode: 45,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description jump to the address specified in register P if the carry flag is not set
-     */
-    JumpRegisterIfNotCarry: {
-        cycles: 1n,
-        opCode: 46,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description jump to the address specified in register P if the divide by zero flag is set
-     */
-    JumpRegisterIfDivideByZero: {
-        cycles: 1n,
-        opCode: 47,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description jump to the address specified in register P if the divide by zero flag is not set
-     */
-    JumpRegisterIfNotDivideByZero: {
-        cycles: 1n,
-        opCode: 48,
-        increment: false,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description does nothing
-     */
-    NoOp: {
-        cycles: 1n,
-        opCode: 49,
-        increment: true,
-    },
-    /**
-     * @description store the keystate (1 = held down, 0 = not held down) of the key specified by register K into register T and set the zero flag appropriately
-     */
-    GetKeyState: {
-        cycles: 1n,
-        opCode: 50,
-        increment: true,
-        target: Register.fromLetter("T"),
-        keycode: Register.fromLetter("K"),
-    },
-    /**
-     * @description store the number of milliseconds since the UNIX epoch into registers high and low
-     */
-    PollTime: {
-        cycles: 1n,
-        opCode: 51,
-        increment: true,
-        high: Register.fromLetter("H"),
-        low: Register.fromLetter("L"),
-    },
-    /**
-     * @description swap the display buffers
-     */
-    SwapFramebuffers: {
-        cycles: 1n,
-        opCode: 53,
-        increment: true,
-    },
-    /**
-     * @description get the start address of the framebuffer that's currently invisible (use the address to draw without tearing)
-     */
-    InvisibleFramebufferAddress: {
-        cycles: 1n,
-        opCode: 56,
-        increment: true,
-        target: Register.fromLetter("T"),
-    },
-    /**
-     * @description store the current cycle (64 bit value) count into registers H and L (H: most significant bytes, L: least significant bytes)
-     */
-    PollCycleCountHighLow: {
-        cycles: 1n,
-        opCode: 57,
-        increment: true,
-        high: Register.fromLetter("H"),
-        low: Register.fromLetter("L"),
-    },
-    /**
-     * @description dump the contents of all registers into the file 'registers_YYYY-MM-DD_X.bin' where YYYY-MM-DD is the current date and X is an increasing number
-     */
-    DumpRegisters: {
-        cycles: 1n,
-        opCode: 65535,
-        increment: true,
-    },
-    /**
-     * @description dump the contents of the whole memory into the file 'memory_YYYY-MM-DD_X.bin' where YYYY-MM-DD is the current date and X is an increasing number
-     */
-    DumpMemory: {
-        cycles: 1n,
-        opCode: 65534,
-        increment: true,
-    },
-    /**
-     * @description assert that the expected register value equals the actual register value (behavior of the VM on a failed assertion is implementation defined)
-     */
-    AssertRegisterRegister: {
-        cycles: 1n,
-        opCode: 65533,
-        increment: true,
-        expected: Register.fromLetter("E"),
-        actual: Register.fromLetter("A"),
-    },
-    /**
-     * @description assert that the actual register value equals the immediate (behavior of the VM on a failed assertion is implementation defined)
-     */
-    AssertRegisterImmediate: {
-        cycles: 1n,
-        opCode: 65532,
-        increment: true,
-        immediate: 2,
-        actual: Register.fromLetter("A"),
-    },
-    /**
-     * @description assert that the value in memory pointed at by P equals the immediate (behavior of the VM on a failed assertion is implementation defined)
-     */
-    AssertPointerImmediate: {
-        cycles: 1n,
-        opCode: 65531,
-        increment: true,
-        immediate: 2,
-        pointer: Register.fromLetter("P"),
-    },
-    /**
-     * @description behavior is implementation defined
-     */
-    DebugBreak: {
-        cycles: 1n,
-        opCode: 65530,
-        increment: true,
-    },
-    /**
-     * @description prints the value of the register as debug output
-     */
-    PrintRegister: {
-        cycles: 1n,
-        opCode: 65529,
-        increment: true,
-        register: Register.fromLetter("R"),
-    },
-    /**
-     * @description makes the emulator check the value of the internal checkpoint counter, fails on mismatch
-     */
-    Checkpoint: {
-        cycles: 1n,
-        opCode: 65528,
-        increment: true,
-        immediate: 2,
-    },
-}
+export const opMap : OpMap = {0: "MoveRegisterImmediate",
+1: "MoveRegisterAddress",
+2: "MoveTargetSource",
+3: "MoveAddressRegister",
+4: "MoveTargetPointer",
+5: "MovePointerSource",
+65: "MoveByteRegisterAddress",
+66: "MoveByteAddressRegister",
+67: "MoveByteTargetPointer",
+68: "MoveBytePointerSource",
+69: "MoveHalfwordRegisterAddress",
+70: "MoveHalfwordAddressRegister",
+71: "MoveHalfwordTargetPointer",
+72: "MoveHalfwordPointerSource",
+73: "MovePointerSourceOffset",
+74: "MoveBytePointerSourceOffset",
+75: "MoveHalfwordPointerSourceOffset",
+76: "MoveTargetPointerOffset",
+77: "MoveByteTargetPointerOffset",
+78: "MoveHalfwordTargetPointerOffset",
+6: "HaltAndCatchFire",
+7: "AddTargetLhsRhs",
+52: "AddWithCarryTargetLhsRhs",
+8: "SubtractTargetLhsRhs",
+9: "SubtractWithCarryTargetLhsRhs",
+10: "MultiplyHighLowLhsRhs",
+11: "DivmodTargetModLhsRhs",
+12: "AndTargetLhsRhs",
+13: "OrTargetLhsRhs",
+14: "XorTargetLhsRhs",
+15: "NotTargetSource",
+16: "LeftShiftTargetLhsRhs",
+17: "RightShiftTargetLhsRhs",
+18: "AddTargetSourceImmediate",
+19: "SubtractTargetSourceImmediate",
+20: "CompareTargetLhsRhs",
+58: "BoolCompareEquals",
+59: "BoolCompareNotEquals",
+60: "BoolCompareGreater",
+61: "BoolCompareGreaterOrEquals",
+62: "BoolCompareLess",
+63: "BoolCompareLessOrEquals",
+21: "PushRegister",
+79: "PushImmediate",
+22: "PopRegister",
+64: "Pop",
+23: "CallAddress",
+54: "CallRegister",
+55: "CallPointer",
+24: "Return",
+25: "JumpImmediate",
+26: "JumpRegister",
+27: "JumpImmediateIfEqual",
+28: "JumpImmediateIfGreaterThan",
+29: "JumpImmediateIfLessThan",
+30: "JumpImmediateIfGreaterThanOrEqual",
+31: "JumpImmediateIfLessThanOrEqual",
+32: "JumpImmediateIfZero",
+33: "JumpImmediateIfNotZero",
+34: "JumpImmediateIfCarry",
+35: "JumpImmediateIfNotCarry",
+36: "JumpImmediateIfDivideByZero",
+37: "JumpImmediateIfNotDivideByZero",
+38: "JumpRegisterIfEqual",
+39: "JumpRegisterIfGreaterThan",
+40: "JumpRegisterIfLessThan",
+41: "JumpRegisterIfGreaterThanOrEqual",
+42: "JumpRegisterIfLessThanOrEqual",
+43: "JumpRegisterIfZero",
+44: "JumpRegisterIfNotZero",
+45: "JumpRegisterIfCarry",
+46: "JumpRegisterIfNotCarry",
+47: "JumpRegisterIfDivideByZero",
+48: "JumpRegisterIfNotDivideByZero",
+49: "NoOp",
+50: "GetKeyState",
+51: "PollTime",
+53: "SwapFramebuffers",
+56: "InvisibleFramebufferAddress",
+57: "PollCycleCountHighLow",
+65535: "DumpRegisters",
+65534: "DumpMemory",
+65533: "AssertRegisterRegister",
+65532: "AssertRegisterImmediate",
+65531: "AssertPointerImmediate",
+65530: "DebugBreak",
+65529: "PrintRegister",
+65528: "Checkpoint"}

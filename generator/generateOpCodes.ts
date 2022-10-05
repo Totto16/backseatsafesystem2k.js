@@ -376,6 +376,8 @@ if (!parsed.isError) {
     const generatedTypescript: string[] = []
     const opNames: string[] = []
     const opObjects: string[] = []
+    const opMap: string[] = []
+
     for (const { type, data } of ops) {
         if (type === "opCode") {
             const {
@@ -449,6 +451,10 @@ if (!parsed.isError) {
             ]
 
             opObjects.push(singleOpCode.join("\n"))
+
+            const map = `${opCode}: "${name}"`
+
+            opMap.push(map)
         }
     }
 
@@ -457,16 +463,22 @@ if (!parsed.isError) {
     )
 
     generatedTypescript.push("")
-    generatedTypescript.push(
+/*     generatedTypescript.push(
         `export type OpCodeNames  = ${opNames
             .map((type) => `"${type}"`)
             .join(" | ")} ;`
     )
 
-    generatedTypescript.push("")
+    generatedTypescript.push("") */
 
     generatedTypescript.push(
         `export const opDefinitions = {${opObjects.join(",\n")}}`
+    )
+
+    generatedTypescript.push("")
+
+    generatedTypescript.push(
+        `export const opMap : OpMap = {${opMap.join(",\n")}}`
     )
 
     const fileHeader = readFileSync(join(__dirname, "opcodes.ts")).toString()

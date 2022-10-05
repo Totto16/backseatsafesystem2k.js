@@ -312,7 +312,7 @@ export class Processor {
         }
 
         switch (opCode.name) {
-            /* case "MoveRegisterImmediate": {
+            case "MoveRegisterImmediate": {
                 const { register, immediate } = (
                     opCode as OpCode<"MoveRegisterImmediate">
                 ).parsedInstruction
@@ -326,6 +326,7 @@ export class Processor {
                     return ExecutionResult.Normal
                 }
             }
+            /*
             case "MoveRegisterAddress": {
                 const { register, source_address: address } = (
                     opCode as OpCode<"MoveRegisterAddress">

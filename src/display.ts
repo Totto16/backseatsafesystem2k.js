@@ -1,10 +1,11 @@
+export const WIDTH: number = 480
+export const HEIGHT: number = (WIDTH / 4) * 3
+
 import {
     SECOND_FRAMEBUFFER_START,
     FIRST_FRAMEBUFFER_START,
     FRAMEBUFFER_SIZE,
     Address,
-    DISPLAY_HEIGHT,
-    DISPLAY_WIDTH,
 } from "./address_constants"
 import { SCREEN_SIZE } from "./main"
 import { Memory } from "./memory"
@@ -85,18 +86,11 @@ export class DisplayImplementation extends MockDisplay {
         const ctx = this.getCurrentCtx(handle)
 
         ctx.fillStyle = "black"
-        ctx.fillRect(
-            0,
-            0,
-            terminal.WIDTH * Display.SCALE,
-            terminal.HEIGHT * Display.SCALE
-        )
+        ctx.fillRect(0, 0, terminal.WIDTH, terminal.HEIGHT)
     }
 }
 
 export class Display extends DisplayImplementation {
-    static SCALE = 20
-
     render(memory: Memory, handle: terminal.DrawHandle) {
         // TODO, tint color would be necessary to implement using canvas tint mode, but thats not necessary here, since it's white
         let tint_color = {
@@ -106,7 +100,8 @@ export class Display extends DisplayImplementation {
             a: 0xff,
         }
 
-        const scale = SCREEN_SIZE.height / DISPLAY_HEIGHT
+        // TODO use this scale:
+        const scale = SCREEN_SIZE.height / HEIGHT
         const framebufferStart = this.isFirstFramebufferVisible()
             ? FIRST_FRAMEBUFFER_START
             : SECOND_FRAMEBUFFER_START
@@ -118,7 +113,8 @@ export class Display extends DisplayImplementation {
             framebufferStart,
             FRAMEBUFFER_SIZE
         )
-        const imageData = new ImageData(DISPLAY_WIDTH, DISPLAY_HEIGHT)
+
+        const imageData = new ImageData(array, WIDTH, HEIGHT)
 
         ctx.putImageData(imageData, 0, 0)
     }
