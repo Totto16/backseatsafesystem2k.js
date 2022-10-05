@@ -4,7 +4,7 @@ import * as HalfWord from "./builtins/HalfWord"
 import * as Instruction from "./builtins/Instruction"
 
 import { Address } from "./address_constants"
-import { Opcode } from "./opcodes"
+import { OpCode } from "./opcodes.generated"
 
 export type Tuple<A, B> = [A, B]
 
@@ -20,7 +20,7 @@ export class Memory {
         return this._data
     }
 
-    readOpcode(address: Address): Tuple<Opcode, Instruction.Instruction> {
+    readOpcode(address: Address): OpCode {
         console.assert(address % Instruction.SIZE == 0)
         let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this._data.buffer,
@@ -28,7 +28,7 @@ export class Memory {
             Instruction.SIZE
         )
         let instruction = Instruction.fromBEBytes(slice)
-        return [new Opcode().fromInstruction(instruction), instruction]
+        return OpCode.fromInstruction(instruction)
     }
 
     readData(address: Address): Word.Word {
@@ -60,7 +60,7 @@ export class Memory {
         return Byte.fromBEBytes(slice)
     }
 
-    writeOpcode(address: Address, opcode: Opcode) {
+    writeOpcode(address: Address, opcode: OpCode) {
         console.assert(address % Instruction.SIZE == 0)
         let instruction: Instruction.Instruction = opcode.asInstruction()
         Instruction.saveAsBEBytes(this._data, address, instruction)
@@ -68,16 +68,19 @@ export class Memory {
 
     writeData(address: Address, data: Word.Word) {
         console.assert(address % Instruction.SIZE == 0)
+        console.assert(Word.isWord(data))
         Word.saveAsBEBytes(this._data, address, data)
     }
 
     writeHalfWord(address: Address, data: HalfWord.HalfWord) {
         console.assert(address % Instruction.SIZE == 0)
+        console.assert(HalfWord.isHalfWord(data))
         HalfWord.saveAsBEBytes(this._data, address, data)
     }
 
     writeByte(address: Address, data: Byte.Byte) {
         console.assert(address % Instruction.SIZE == 0)
+        console.assert(Byte.isByte(data))
         Byte.saveAsBEBytes(this._data, address, data)
     }
 }

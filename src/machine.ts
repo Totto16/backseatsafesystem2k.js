@@ -46,7 +46,7 @@ export class Machine {
             .map((previous, i) => {
                 const address = i * Instruction.SIZE
                 if (address >= ENTRY_POINT) {
-                    const [opCode, instruction] =
+                    const opCode=
                         this.memory.readOpcode(address)
                     return Processor.generateCachedInstruction(opCode)
                 }

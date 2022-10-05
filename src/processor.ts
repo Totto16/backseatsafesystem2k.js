@@ -1,18 +1,18 @@
 import * as Word from "./builtins/Word"
-import { STACK_START } from "./address_constants";
-import { u32, u64 } from "./builtins/types";
-import { Memory } from "./memory";
+import { STACK_START } from "./address_constants"
+import { u32, u64 } from "./builtins/types"
+import { Memory } from "./memory"
 import * as Instruction from "./builtins/Instruction"
-import { InstructionCache, CachedInstruction} from "./machine";
-import {OpCode} from "./opcodes.generated"
-
+import { InstructionCache, CachedInstruction } from "./machine"
+import { OpCode } from "./opcodes.generated"
+import * as Byte from "./builtins/Byte"
 
 export const NUM_REGISTERS = 256
 export class Registers {
     numRegisters: number
     registers: Register[];
 
-    [key: number | Register]: Word.Word;
+    [key: number | Register]: Word.Word
 
     constructor(numRegisters: number) {
         this.numRegisters = numRegisters
@@ -25,7 +25,8 @@ export class Registers {
         let self = this
         return new Proxy(this, {
             get(target, prop) {
-                const index = prop instanceof Register ? prop.value : Number(prop)
+                const index =
+                    prop instanceof Register ? prop.value : Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return self.registers[index].value
@@ -36,7 +37,8 @@ export class Registers {
                 return (target as { [key: string]: any })[prop as string]
             },
             set(target, prop, value) {
-                const index = prop instanceof Register ? prop.value : Number(prop)
+                const index =
+                    prop instanceof Register ? prop.value : Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return (self.registers[index].value = value)
@@ -48,52 +50,47 @@ export class Registers {
             },
         })
     }
-
-
 }
 
 export class Register {
-    value: Word.Word;
+    value: Word.Word
     constructor(value = 0) {
         this.value = value
     }
 
-    static fromLetter(letter : string) : Register{
+    static fromLetter(letter: string): Register {
         // TODO: stub for the moment
-        return new Register();
+        return new Register()
     }
 }
 
-
-export type FlagName = "Zero" | "Carry" | "DivideByZero";
-
+export type FlagName = "Zero" | "Carry" | "DivideByZero"
 
 export type FlagDescription = [FlagName, number]
-export class Flag{
-    name : FlagName;
-    bits: Word.Word;
-    shift : Word.Word
+export class Flag {
+    name: FlagName
+    bits: Word.Word
+    shift: Word.Word
 
-    static flags : FlagDescription[] = [
+    static flags: FlagDescription[] = [
         ["Zero", 0],
         ["Carry", 1],
-        ["DivideByZero", 2]
+        ["DivideByZero", 2],
     ]
 
-    constructor(name : FlagName){
-        this.name = name;
-        const [,shift] = Flag.flags.filter(([nm])=>nm === name)[0];
-        this.bits = 0b1 << shift;
-        this.shift = shift;
+    constructor(name: FlagName) {
+        this.name = name
+        const [, shift] = Flag.flags.filter(([nm]) => nm === name)[0]
+        this.bits = 0b1 << shift
+        this.shift = shift
     }
 
-    set(registerContent : Word.Word, setStatus : boolean): Word.Word{
-        const  modifiedContent : Word.Word = (registerContent & ~(this.bits) | (setStatus << this.shift))
+    set(registerContent: Word.Word, setStatus: boolean): Word.Word {
+        const modifiedContent: Word.Word =
+            (registerContent & ~this.bits) | (setStatus << this.shift)
         return modifiedContent
     }
-
 }
-
 
 export enum Direction {
     Forwards,
@@ -112,9 +109,9 @@ export class Processor {
     exitOnHalt: boolean
     checkpointCounter: Word.Word
 
-    FLAGS : Register = Register(NUM_REGISTERS -3)
-    INSTRUCTION_POINTER: Register = Register((NUM_REGISTERS - 2));
-    STACK_POINTER: Register = Register((NUM_REGISTERS - 1));
+    FLAGS: Register = Register(NUM_REGISTERS - 3)
+    INSTRUCTION_POINTER: Register = Register(NUM_REGISTERS - 2)
+    STACK_POINTER: Register = Register(NUM_REGISTERS - 1)
 
     constructor(exitOnHalt: boolean) {
         this.registers = new Registers(NUM_REGISTERS)
@@ -125,55 +122,58 @@ export class Processor {
         this.registers[this.STACK_POINTER] = STACK_START
     }
 
-
-    getFlag(flagInput: Flag | FlagName) :boolean {
-        const flag = typeof flagInput === "string" ? new Flag(flagInput) : flagInput;
-        this.registers[this.FLAGS] & flag.bits == flag.bits
+    getFlag(flagInput: Flag | FlagName): boolean {
+        const flag =
+            typeof flagInput === "string" ? new Flag(flagInput) : flagInput
+        this.registers[this.FLAGS] & (flag.bits == flag.bits)
     }
 
     setFlag(flagInput: Flag | FlagName, set: boolean) {
-        const flag = typeof flagInput === "string" ? new Flag(flagInput) : flagInput;
+        const flag =
+            typeof flagInput === "string" ? new Flag(flagInput) : flagInput
 
-        const bits : Word.Word = flag.set(this.registers[this.FLAGS], set);
-        this.registers[this.FLAGS] = bits;
+        const bits: Word.Word = flag.set(this.registers[this.FLAGS], set)
+        this.registers[this.FLAGS] = bits
     }
 
-    getStackPointer() : Address {
+    getStackPointer(): Address {
         this.registers[this.STACK_POINTER]
     }
 
     setStackPointer(address: Address) {
-        console.assert((address > STACK_START && address - STACK_START < STACK_SIZE));
-        this.registers[this.STACK_POINTER] = address;
+        console.assert(
+            address > STACK_START && address - STACK_START < STACK_SIZE
+        )
+        this.registers[this.STACK_POINTER] = address
     }
 
-    advanceStackPointer( step: number, direction: Direction) {
+    advanceStackPointer(step: number, direction: Direction) {
         switch (direction) {
             case Direction.Forwards:
                 this.setStackPointer(this.getStackPointer() + step)
-                break;
-        
-                case Direction.Backwards:
-                    this.setStackPointer(this.getStackPointer() - step)
-                    break;
+                break
+
+            case Direction.Backwards:
+                this.setStackPointer(this.getStackPointer() - step)
+                break
             default:
                 throw new Error(`unimplemented Direction: ${direction}!`)
-                break;
+                break
         }
     }
 
     stackPush(memory: Memory, value: Word.Word) {
-        memory.writeData(this.getStackPointer(), value);
-        this.advanceStackPointer(Word.SIZE, Direction.Forwards);
+        memory.writeData(this.getStackPointer(), value)
+        this.advanceStackPointer(Word.SIZE, Direction.Forwards)
     }
 
-    stackPop(memory : Memory) : Word.word {
-        this.advanceStackPointer(Word.SIZE, Direction.Backwards);
+    stackPop(memory: Memory): Word.word {
+        this.advanceStackPointer(Word.SIZE, Direction.Backwards)
         memory.readData(this.getStackPointer())
     }
 
     setInstructionPointer(address: Address) {
-        this.registers[this.INSTRUCTION_POINTER] = address;
+        this.registers[this.INSTRUCTION_POINTER] = address
     }
 
     getInstructionPointer(): Address {
@@ -181,442 +181,577 @@ export class Processor {
     }
 
     advanceInstructionPointer(direction: Direction) {
-
         switch (direction) {
             case Direction.Forwards:
-                this.setInstructionPointer(this.getInstructionPointer() + Instruction.SIZE)
-                break;
-        
-                case Direction.Backwards:
-                    this.setInstructionPointer(Math.max(this.getInstructionPointer() - Instruction.SIZE,0))
-                    break;
+                this.setInstructionPointer(
+                    this.getInstructionPointer() + Instruction.SIZE
+                )
+                break
+
+            case Direction.Backwards:
+                this.setInstructionPointer(
+                    Math.max(this.getInstructionPointer() - Instruction.SIZE, 0)
+                )
+                break
             default:
                 throw new Error(`unimplemented Direction: ${direction}!`)
-                break;
+                break
         }
-
     }
 
-    getCycleCount() : u64 {
+    getCycleCount(): u64 {
         this.cycleCount
     }
 
     increaseCycleCount(amount: u64) {
-        self.cycleCount += amount;
+        self.cycleCount += amount
     }
-
 
     executeNextInstruction<>(
         memory: Memory,
         periphery: Periphery,
-        instructionCache:InstructionCache,
-    ) : ExecutionResult {
-        const instructionAddress = this.getInstructionPointer();
-        const cacheIndex = instructionAddress / Instruction.SIZE as Address;
+        instructionCache: InstructionCache
+    ): ExecutionResult {
+        const instructionAddress = this.getInstructionPointer()
+        const cacheIndex = (instructionAddress / Instruction.SIZE) as Address
         // TODO Instruction has to be made callable!!!!
         return instructionCache.cache[cacheIndex](this, memory, periphery)
     }
 
     pushInstructionPointer(memory: Memory) {
-        this.stackPush(
-            memory,
-            this.getInstructionPointer() + Instruction.SIZE,
-        );
+        this.stackPush(memory, this.getInstructionPointer() + Instruction.SIZE)
     }
 
-
-    static generateCachedInstruction(
-        opcode: OpCode,
-    ) : CachedInstruction {
-
+    static generateCachedInstruction(opCode: OpCode): CachedInstruction {
         // unbound js function, the this is not the this referring the processor, it's meant to be like that!
-        const handleCycleCountAndInstructionPointer = function (processor: Processor){
-            processor.increaseCycleCount(opcode.get_num_cycles());
-            if (opcode.should_increment_instruction_pointer()) {
-                processor.advanceInstructionPointer(Direction.Forwards);
+        const handleCycleCountAndInstructionPointer = function (
+            processor: Processor
+        ) {
+            processor.increaseCycleCount(opCode.getNumCycles())
+            if (opCode.shouldIncrementInstructionPointer()) {
+                processor.advanceInstructionPointer(Direction.Forwards)
             }
-        };
+        }
 
-       switch(opcode) {
-            MoveRegisterImmediate {
-                register,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[register] = immediate;
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveRegisterAddress {
-                register,
-                source_address: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[register] = memory.read_data(address);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveTargetSource { target, source } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] = processor.registers[source];
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MoveAddressRegister {
-                register,
-                target_address: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_data(address, processor.registers[register]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveTargetPointer { target, pointer } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] = memory.read_data(processor.registers[pointer]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MovePointerSource { pointer, source } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_data(processor.registers[pointer], processor.registers[source]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MoveByteRegisterAddress {
-                register,
-                source_address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[register] = memory.read_byte(source_address) as Word;
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveByteAddressRegister {
-                register,
-                target_address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_byte(target_address, processor.registers[register] as u8);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveByteTargetPointer { target, pointer } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        memory.read_byte(processor.registers[pointer]) as Word;
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MoveBytePointerSource { pointer, source } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_byte(
+        switch (opCode.name) {
+            case "MoveRegisterImmediate": {
+                const { register, immediate } = (
+                    opCode as OpCode<"MoveRegisterImmediate">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[register] = immediate
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "MoveRegisterAddress": {
+                const { register, source_address: address } = (
+                    opCode as OpCode<"MoveRegisterAddress">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[register] = memory.readData(address)
+                    handleCycleCountAndInstructionPointer(processor)
+                    ExecutionResult.Normal
+                }
+            }
+
+            case "MoveTargetSource": {
+                const { target, source } = (
+                    opCode as OpCode<"MoveTargetSource">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] = processor.registers[source]
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveAddressRegister": {
+                const { register, target_address: address } = (
+                    opCode as OpCode<"MoveAddressRegister">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeData(address, processor.registers[register])
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveTargetPointer": {
+                const { target, pointer } = (
+                    opCode as OpCode<"MoveTargetPointer">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] = memory.readData(
+                        processor.registers[pointer]
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MovePointerSource": {
+                const { pointer, source } = (
+                    opCode as OpCode<"MovePointerSource">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeData(
                         processor.registers[pointer],
-                        processor.registers[source] as u8,
-                    );
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MoveHalfwordRegisterAddress {
-                register,
-                source_address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[register] = memory.read_halfword(source_address).into();
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveHalfwordAddressRegister {
-                register,
-                target_address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_halfword(target_address, processor.registers[register] as u16);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveHalfwordTargetPointer { target, pointer } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        memory.read_halfword(processor.registers[pointer]).into();
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MoveHalfwordPointerSource { pointer, source } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_halfword(
+                        processor.registers[source]
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveByteRegisterAddress": {
+                const { register, source_address } = (
+                    opCode as OpCode<"MoveByteRegisterAddress">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[register] = memory.readByte(
+                        source_address
+                    ) as Word
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveByteAddressRegister": {
+                const { register, target_address } = (
+                    opCode as OpCode<"MoveByteAddressRegister">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeByte(
+                        target_address,
+                        processor.registers[register] as u8
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveByteTargetPointer": {
+                const { target, pointer } = (
+                    opCode as OpCode<"MoveByteTargetPointer">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] = memory.readByte(
+                        processor.registers[pointer]
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveBytePointerSource": {
+                const { pointer, source } = (
+                    opCode as OpCode<"MoveBytePointerSource">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeByte(
                         processor.registers[pointer],
-                        processor.registers[source] as u16,
-                    );
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MovePointerSourceOffset {
-                pointer,
-                source,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_data(
+                        Byte.toByte(processor.registers[source])
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveHalfwordRegisterAddress": {
+                const { register, source_address } = (
+                    opCode as OpCode<"MoveHalfwordRegisterAddress">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[register] =
+                        memory.readHalfword(source_address)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveHalfwordAddressRegister": {
+                const { register, target_address } = (
+                    opCode as OpCode<"MoveHalfwordAddressRegister">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeHalfword(
+                        target_address,
+                        HalfWord.toHalfWord(processor.registers[register])
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveHalfwordTargetPointer": {
+                const { target, pointer } = (
+                    opCode as OpCode<"MoveHalfwordTargetPointer">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] = memory.readHalfWord(
+                        processor.registers[pointer]
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveHalfwordPointerSource": {
+                const { pointer, source } = (
+                    opCode as OpCode<"MoveHalfwordPointerSource">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeHalfWord(
+                        processor.registers[pointer],
+                        HalfWord.toHalfWord(processor.registers[source])
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MovePointerSourceOffset": {
+                const { pointer, source, immediate } = (
+                    opCode as OpCode<"MovePointerSourceOffset">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeData(
                         processor.registers[pointer] + immediate,
-                        processor.registers[source],
-                    );
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveBytePointerSourceOffset {
-                pointer,
-                source,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_byte(
+                        processor.registers[source]
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveBytePointerSourceOffset": {
+                const { pointer, source, immediate } = (
+                    opCode as OpCode<"MoveBytePointerSourceOffset">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeByte(
                         processor.registers[pointer] + immediate,
-                        processor.registers[source] as Byte,
-                    );
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveHalfwordPointerSourceOffset {
-                pointer,
-                source,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    memory.write_halfword(
+                        Byte.toByte(processor.registers[source] as Byte)
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveHalfwordPointerSourceOffset": {
+                const { pointer, source, immediate } = (
+                    opCode as OpCode<"MoveHalfwordPointerSourceOffset">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    memory.writeHalfword(
                         processor.registers[pointer] + immediate,
-                        processor.registers[source] as Halfword,
-                    );
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveTargetPointerOffset {
-                target,
-                pointer,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        memory.read_data(processor.registers[pointer] + immediate);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveByteTargetPointerOffset {
-                target,
-                pointer,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] = memory
-                        .read_byte(processor.registers[pointer] + immediate)
-                        .into();
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            MoveHalfwordTargetPointerOffset {
-                target,
-                pointer,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] = memory
-                        .read_halfword(processor.registers[pointer] + immediate)
-                        .into();
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            HaltAndCatchFire {} => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    println!("HALT AND CATCH FIRE!");
-                    if processor.exit_on_halt {
-                        std::process::exit(0);
+                        HalfWord.toHalfWord(processor.registers[source])
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveTargetPointerOffset": {
+                const { register, immediate } = (
+                    opCode as OpCode<"MoveTargetPointerOffset">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] = memory.readData(
+                        processor.registers[pointer] + immediate
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveByteTargetPointerOffset": {
+                const { target, pointer, immediate } = (
+                    opCode as OpCode<"MoveByteTargetPointerOffset">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] = memory.readByte(
+                        processor.registers[pointer] + immediate
+                    )
+
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MoveHalfwordTargetPointerOffset": {
+                const { target, pointer, immediate } = (
+                    opCode as OpCode<"MoveHalfwordTargetPointerOffset">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] = memory.readHalfword(
+                        processor.registers[pointer] + immediate
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "HaltAndCatchFire": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (processor.exitOnHalt) {
+                        // TODO implement a "exit" in the browser, like a blank canvas, remove canvas or similar
+                        throw new Error("exit(0)")
                     }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Halted
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            AddTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    let did_overflow;
-                    (processor.registers[target], did_overflow) = lhs.overflowing_add(rhs);
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    processor.set_flag(Flag::Carry, did_overflow);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            SubtractTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    let did_overflow;
-                    (processor.registers[target], did_overflow) = lhs.overflowing_sub(rhs);
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    processor.set_flag(Flag::Carry, did_overflow);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            SubtractWithCarryTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    let carry_flag_set = processor.get_flag(Flag::Carry);
-                    let did_overflow;
-                    (processor.registers[target], did_overflow) = lhs.overflowing_sub(rhs);
-                    let did_overflow_after_subtracting_carry;
-                    (
-                        processor.registers[target],
-                        did_overflow_after_subtracting_carry,
-                    ) = processor.registers[target].overflowing_sub(carry_flag_set as _);
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    processor.set_flag(
-                        Flag::Carry,
-                        did_overflow || did_overflow_after_subtracting_carry,
-                    );
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            MultiplyHighLowLhsRhs {
-                high,
-                low,
-                lhs,
-                rhs,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    let result = lhs as u64 * rhs as u64;
-                    processor.registers[high] = (result >> 32) as u32;
-                    processor.registers[low] = result as u32;
-                    processor.set_flag(Flag::Zero, processor.registers[low] == 0);
-                    processor.set_flag(Flag::Carry, processor.registers[high] > 0);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            DivmodTargetModLhsRhs {
-                result,
-                remainder,
-                lhs,
-                rhs,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    if rhs == 0 {
-                        processor.registers[result] = 0;
-                        processor.registers[remainder] = lhs;
-                        processor.set_flag(Flag::Zero, true);
-                        processor.set_flag(Flag::DivideByZero, true);
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Halted
+                }
+            }
+
+            case "AddTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"AddTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+                    const { result, didOverflow } = Word.overflowingAdd(
+                        lhs,
+                        rhs,
+                        processor
+                    )
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "AddWithCarryTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"AddWithCarryTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+                    const { result, didOverflow } = Word.overflowingAdd(
+                        lhs,
+                        rhs,
+                        processor,
+                        true
+                    )
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "SubtractTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"SubtractTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+                    const { result, didOverflow } = Word.overflowingSub(
+                        lhs,
+                        rhs,
+                        processor
+                    )
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "SubtractWithCarryTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"SubtractWithCarryTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+                    const { result, didOverflow } = Word.overflowingSub(
+                        lhs,
+                        rhs,
+                        processor,
+                        true
+                    )
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "MultiplyHighLowLhsRhs": {
+                const { high, low, lhs, rhs } = (
+                    opCode as OpCode<"MultiplyHighLowLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+                    const { result, didOverflow } = Word.overflowingMul(
+                        lhs,
+                        rhs,
+                        processor
+                    )
+                    const { upper, lower } = Instruction.asWords(result)
+                    processor.registers[high] = upper
+                    processor.registers[low] = lower
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "DivmodTargetModLhsRhs": {
+                const { result, remainder, lhs, rhs } = (
+                    opCode as OpCode<"DivmodTargetModLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+
+                    if (rhs == 0) {
+                        processor.registers[result] = 0
+                        processor.registers[remainder] = lhs
+                        processor.set_flag("Zero", true)
+                        processor.set_flag("DivideByZero", true)
                     } else {
-                        (processor.registers[result], processor.registers[remainder]) =
-                            (lhs / rhs, lhs % rhs);
-                        processor.set_flag(Flag::Zero, processor.registers[result] == 0);
-                        processor.set_flag(Flag::DivideByZero, false);
+                        const [div, mod] = [Math.floor(lhs / rhs), lhs % rhs]
+
+                        processor.registers[result] = div
+                        processor.registers[remainder] = mod
+
+                        processor.setFlag("Zero", div === 0)
+                        processor.setFlag("DivideByZero", false)
                     }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            AndTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    processor.registers[target] = lhs & rhs;
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            case "AndTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"AndTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs & rhs
+                    processor.registers[target] = result
+                    processor.setFlag("Zero", result === 0)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            /* 
             OrTargetLhsRhs { target, lhs, rhs } => Box::new(
                 move |processor: &mut Processor,
                       _memory: &mut Memory,
@@ -626,7 +761,7 @@ export class Processor {
                     processor.registers[target] = lhs | rhs;
                     processor.set_flag(Flag::Zero, processor.registers[target] == 0);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -639,7 +774,7 @@ export class Processor {
                     processor.registers[target] = lhs ^ rhs;
                     processor.set_flag(Flag::Zero, processor.registers[target] == 0);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -650,7 +785,7 @@ export class Processor {
                     processor.registers[target] = !processor.registers[source];
                     processor.set_flag(Flag::Zero, processor.registers[target] == 0);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -671,7 +806,7 @@ export class Processor {
                         processor.set_flag(Flag::Carry, rhs > lhs.leading_zeros());
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -692,7 +827,7 @@ export class Processor {
                         processor.set_flag(Flag::Carry, rhs > lhs.trailing_zeros());
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -710,7 +845,7 @@ export class Processor {
                     processor.set_flag(Flag::Zero, processor.registers[target] == 0);
                     processor.set_flag(Flag::Carry, carry);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             SubtractTargetSourceImmediate {
@@ -726,7 +861,7 @@ export class Processor {
                     processor.set_flag(Flag::Zero, processor.registers[target] == 0);
                     processor.set_flag(Flag::Carry, immediate > processor.registers[source]);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             CompareTargetLhsRhs { target, lhs, rhs } => Box::new(
@@ -742,7 +877,7 @@ export class Processor {
                     };
                     processor.set_flag(Flag::Zero, processor.registers[target] == 0);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -752,7 +887,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     processor.stack_push(memory, processor.registers[register]);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             PushImmediate { immediate } => Box::new(
@@ -761,7 +896,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     processor.stack_push(memory, immediate);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             PopRegister { register } => Box::new(
@@ -770,7 +905,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     processor.registers[register] = processor.stack_pop(memory);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             Pop {} => Box::new(
@@ -779,7 +914,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     processor.stack_pop(memory);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             CallAddress {
@@ -791,7 +926,7 @@ export class Processor {
                     processor.push_instruction_pointer(memory);
                     processor.set_instruction_pointer(address);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             Return {} => Box::new(
@@ -801,7 +936,7 @@ export class Processor {
                     let return_address = processor.stack_pop(memory);
                     processor.set_instruction_pointer(return_address);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpImmediate { immediate: address } => Box::new(
@@ -810,7 +945,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     processor.set_instruction_pointer(address);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -820,7 +955,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     processor.set_instruction_pointer(processor.registers[register]);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpImmediateIfEqual {
@@ -835,7 +970,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpImmediateIfGreaterThan {
@@ -850,7 +985,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpImmediateIfLessThan {
@@ -865,7 +1000,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpImmediateIfGreaterThanOrEqual {
@@ -880,7 +1015,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpImmediateIfLessThanOrEqual {
@@ -895,7 +1030,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpImmediateIfZero { immediate: address } => Box::new(
@@ -907,7 +1042,7 @@ export class Processor {
                         false => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -920,7 +1055,7 @@ export class Processor {
                         true => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -933,7 +1068,7 @@ export class Processor {
                         false => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -946,7 +1081,7 @@ export class Processor {
                         true => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -959,7 +1094,7 @@ export class Processor {
                         false => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -972,7 +1107,7 @@ export class Processor {
                         true => processor.advance_instruction_pointer(Direction::Forwards),
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -988,7 +1123,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpRegisterIfGreaterThan {
@@ -1003,7 +1138,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpRegisterIfLessThan {
@@ -1020,7 +1155,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpRegisterIfGreaterThanOrEqual {
@@ -1035,7 +1170,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpRegisterIfLessThanOrEqual {
@@ -1052,7 +1187,7 @@ export class Processor {
                         _ => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpRegisterIfZero { pointer } => Box::new(
@@ -1064,7 +1199,7 @@ export class Processor {
                         false => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             JumpRegisterIfNotZero { pointer } => Box::new(
@@ -1076,7 +1211,7 @@ export class Processor {
                         true => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1089,7 +1224,7 @@ export class Processor {
                         false => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1102,7 +1237,7 @@ export class Processor {
                         true => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1115,7 +1250,7 @@ export class Processor {
                         false => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1128,7 +1263,7 @@ export class Processor {
                         true => processor.advance_instruction_pointer(Direction::Forwards),
                     };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1137,7 +1272,7 @@ export class Processor {
                       _memory: &mut Memory,
                       _periphery: &mut ConcretePeriphery| {
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             GetKeyState { target, keycode } => Box::new(
@@ -1153,7 +1288,7 @@ export class Processor {
                     .into();
                     processor.set_flag(Flag::Zero, processor.registers[target] == 0);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1165,28 +1300,10 @@ export class Processor {
                     processor.registers[low] = time as Word;
                     processor.registers[high] = (time >> Word::BITS) as Word;
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
-            AddWithCarryTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let result = processor.registers[lhs]
-                        .wrapping_add(processor.registers[rhs])
-                        .wrapping_add(processor.get_flag(Flag::Carry).into());
-                    let overflow_happened = (processor.registers[lhs] as u64
-                        + processor.registers[rhs] as u64
-                        + processor.get_flag(Flag::Carry) as u64)
-                        > Word::MAX as u64;
-                    processor.registers[target] = result;
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    processor.set_flag(Flag::Carry, overflow_happened);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
+           
             CallRegister { register } => Box::new(
                 move |processor: &mut Processor,
                       memory: &mut Memory,
@@ -1194,7 +1311,7 @@ export class Processor {
                     processor.push_instruction_pointer(memory);
                     processor.set_instruction_pointer(processor.registers[register]);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             CallPointer { pointer } => Box::new(
@@ -1205,7 +1322,7 @@ export class Processor {
                     processor
                         .set_instruction_pointer(memory.read_data(processor.registers[pointer]));
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             SwapFramebuffers {} => Box::new(
@@ -1214,7 +1331,7 @@ export class Processor {
                       periphery: &mut ConcretePeriphery| {
                     periphery.display().swap();
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             InvisibleFramebufferAddress { target } => Box::new(
@@ -1224,7 +1341,7 @@ export class Processor {
                     processor.registers[target] =
                         periphery.display().invisible_framebuffer_address();
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1235,7 +1352,7 @@ export class Processor {
                     processor.registers[low] = processor.cycle_count as Word;
                     processor.registers[high] = (processor.cycle_count >> Word::BITS) as Word;
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1253,7 +1370,7 @@ export class Processor {
                         eprintln!("Error dumping registers: {}", error);
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             DumpMemory {} => Box::new(
@@ -1264,7 +1381,7 @@ export class Processor {
                         eprintln!("Error dumping memory: {}", error);
                     }
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             AssertRegisterRegister { expected, actual } => Box::new(
@@ -1273,7 +1390,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     assert_eq!(processor.registers[actual], processor.registers[expected]);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1283,7 +1400,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     assert_eq!(processor.registers[actual], immediate);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1293,7 +1410,7 @@ export class Processor {
                       _periphery: &mut ConcretePeriphery| {
                     assert_eq!(memory.read_data(processor.registers[pointer]), immediate);
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1314,7 +1431,7 @@ export class Processor {
                         register.0, processor.registers[register], processor.registers[register]
                     );
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             ) as CachedInstruction<ConcretePeriphery>,
             BoolCompareEquals { target, lhs, rhs } => Box::new(
@@ -1328,7 +1445,7 @@ export class Processor {
                             0
                         };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1343,7 +1460,7 @@ export class Processor {
                             1
                         };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1358,7 +1475,7 @@ export class Processor {
                             0
                         };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1373,7 +1490,7 @@ export class Processor {
                             0
                         };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1388,7 +1505,7 @@ export class Processor {
                             0
                         };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1403,7 +1520,7 @@ export class Processor {
                             0
                         };
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
             )
                 as CachedInstruction<ConcretePeriphery>,
@@ -1419,10 +1536,12 @@ export class Processor {
                     }
                     processor.checkpoint_counter += 1;
                     handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult::Normal
+                    ExecutionResult.Normal
                 },
-            ) as CachedInstruction<ConcretePeriphery>,
+            ) as CachedInstruction<ConcretePeriphery>, */
+
+            default:
+                throw new Error(`unimplemented operation Code: ${opCode.name}!`)
         }
     }
-
 }

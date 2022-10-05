@@ -368,8 +368,7 @@ export type OPObject = {
     opCode: number
     cycles: number
     increment: boolean
-    [key: string]: string | number | boolean | undefined
-}
+} & Record<string, any>
 
 if (!parsed.isError) {
     const ops = parsed.result
@@ -456,7 +455,23 @@ if (!parsed.isError) {
     generatedTypescript.push("")
 
     generatedTypescript.push(
-        `export const opDefinitions = {${opObjects.join(",\n")}}`
+        ...[
+            "export type OPCodeBasicDefinition = {",
+            "[key in OpCodeNames]: {",
+            "cycles: number",
+            "opCode: number",
+            "increment: boolean",
+            "} & Record<string, any>",
+            "}",
+        ]
+    )
+
+    generatedTypescript.push("")
+
+    generatedTypescript.push(
+        `export const opDefinitions : OPCodeBasicDefinition = {${opObjects.join(
+            ",\n"
+        )}}`
     )
 
     const fileHeader = readFileSync(join(__dirname, "opcodes.ts")).toString()

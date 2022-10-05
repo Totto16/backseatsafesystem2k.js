@@ -40,3 +40,7 @@ export function asWords(value: Instruction): [Word.Word, Word.Word] {
         binaryString.substring(Word.SIZE * Byte.bits),
     ].map((a) => parseInt(a, 2)) as [Word.Word, Word.Word]
 }
+
+export function isInstruction(number: Instruction) {
+    return number >= 0n && number < 1n << BigInt(bits.toString())
+}

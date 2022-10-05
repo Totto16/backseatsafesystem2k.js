@@ -2,6 +2,7 @@ import * as Byte from "./Byte"
 import { unpack, packTo } from "byte-data"
 import { Address } from "../address_constants"
 import { u16 } from "./types"
+import * as Word from "./Word"
 
 export const SIZE = 2
 
@@ -30,4 +31,12 @@ export function saveAsBEBytes(
         address,
         true
     )
+}
+
+export function toHalfWord(input: Word.Word) {
+    return Byte.clamp(input, 0, (1 << bits) - 1)
+}
+
+export function isHalfWord(number: Word.Word) {
+    return number >= 0 && number < 1 << bits
 }
