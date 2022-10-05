@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "arcsecond": "^5.0.0",
+    "assert": "^2.0.0",
     "bigint-conversion": "^2.2.2",
     "byte-data": "^19.0.1"
   }

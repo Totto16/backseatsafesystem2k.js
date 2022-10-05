@@ -2,6 +2,7 @@ import * as Byte from "./builtins/Byte"
 import * as Word from "./builtins/Word"
 import * as HalfWord from "./builtins/HalfWord"
 import * as Instruction from "./builtins/Instruction"
+import assert from "assert"
 
 import { Address } from "./address_constants"
 import { OpCode } from "./opcodes.generated"
@@ -21,7 +22,7 @@ export class Memory {
     }
 
     readOpcode(address: Address): OpCode {
-        console.assert(address % Instruction.SIZE == 0)
+        assert(address % Instruction.SIZE === 0)
         let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this._data.buffer,
             address,
@@ -32,7 +33,7 @@ export class Memory {
     }
 
     readData(address: Address): Word.Word {
-        console.assert(address % Word.SIZE == 0)
+        assert(address % Word.SIZE === 0)
         let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this._data.buffer,
             address,
@@ -42,7 +43,7 @@ export class Memory {
     }
 
     readHalfWord(address: Address): HalfWord.HalfWord {
-        console.assert(address % HalfWord.SIZE == 0)
+        assert(address % HalfWord.SIZE == 0)
         let slice: Uint8ClampedArray = new Uint8ClampedArray(
             this._data.buffer,
             address,
@@ -61,26 +62,26 @@ export class Memory {
     }
 
     writeOpcode(address: Address, opcode: OpCode) {
-        console.assert(address % Instruction.SIZE == 0)
+        assert(address % Instruction.SIZE === 0)
         let instruction: Instruction.Instruction = opcode.asInstruction()
         Instruction.saveAsBEBytes(this._data, address, instruction)
     }
 
     writeData(address: Address, data: Word.Word) {
-        console.assert(address % Instruction.SIZE == 0)
-        console.assert(Word.isWord(data))
+        assert(address % Instruction.SIZE === 0)
+        assert(Word.isWord(data))
         Word.saveAsBEBytes(this._data, address, data)
     }
 
     writeHalfWord(address: Address, data: HalfWord.HalfWord) {
-        console.assert(address % Instruction.SIZE == 0)
-        console.assert(HalfWord.isHalfWord(data))
+        assert(address % Instruction.SIZE === 0)
+        assert(HalfWord.isHalfWord(data))
         HalfWord.saveAsBEBytes(this._data, address, data)
     }
 
     writeByte(address: Address, data: Byte.Byte) {
-        console.assert(address % Instruction.SIZE == 0)
-        console.assert(Byte.isByte(data))
+        assert(address % Instruction.SIZE === 0)
+        assert(Byte.isByte(data))
         Byte.saveAsBEBytes(this._data, address, data)
     }
 }

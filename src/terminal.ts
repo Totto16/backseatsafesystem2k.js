@@ -1,5 +1,6 @@
 // featuring Tom Hanks
 
+import assert from "assert"
 import {
     TERMINAL_CURSOR_POINTER,
     Address,
@@ -31,7 +32,7 @@ export function render(
     display: Display
 ) {
     const cursor_pointer = memory.readData(TERMINAL_CURSOR_POINTER)
-    console.assert(TERMINAL_BUFFER_START == 0) // to assume we get no overflow
+    assert(TERMINAL_BUFFER_START == 0) // to assume we get no overflow
 
     const cursorIndex = cursor_pointer - TERMINAL_BUFFER_START
     const cursorRow = cursorIndex / WIDTH

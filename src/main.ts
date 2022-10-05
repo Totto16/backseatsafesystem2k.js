@@ -346,7 +346,7 @@ function loadRom(
     writeBuffer(file.content, machine)
 }
 
-function writeBuffer(content : Uint8ClampedArray, machine: Machine) :  {
+function writeBuffer(content : Uint8ClampedArray, machine: Machine)   {
     if ((Memory.SIZE - ENTRY_POINT) < content.length) {
         throw new Error(`File size ${content.length} too big`);
     }

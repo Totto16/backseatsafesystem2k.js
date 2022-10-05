@@ -1,3 +1,5 @@
+import * as Word from "./builtins/Word"
+
 export enum KeyState {
     Down,
     Up,
@@ -11,7 +13,7 @@ export class Keyboard {
     listenElement: HTMLElement
     pressedKeys: KeyStates
 
-    static DEFAULT_STATE = KeyState.Down
+    static DEFAULT_STATE = KeyState.Up
 
     constructor(listenElement: HTMLElement) {
         this.listenElement = listenElement
@@ -25,7 +27,8 @@ export class Keyboard {
         })
     }
 
-    getKeyState(key: string): KeyState {
+    getKeyState(_key: string | Word.Word): KeyState {
+        const key = typeof _key === "string" ? _key : String.fromCharCode(_key)
         return this.pressedKeys[key] ?? Keyboard.DEFAULT_STATE
     }
 }

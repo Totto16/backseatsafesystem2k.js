@@ -5,12 +5,15 @@ import { Address } from "../address_constants"
 import { u32, u64 } from "./types"
 import { Processor } from "../processor"
 import * as Instruction from "./Instruction"
+import assert from "assert"
 
 export const SIZE = 4
 
 export type Word = u32
 
 export const bits = Byte.bits * SIZE
+
+export const MAX = ((1 << bits) >>> 0) - 1
 
 export function fromBEBytes(array: Uint8ClampedArray): Word {
     return unpack(
@@ -35,6 +38,14 @@ export function saveAsBEBytes(
     )
 }
 
+export function toBEBytes(
+    value: Word
+): [Byte.Byte, Byte.Byte, Byte.Byte, Byte.Byte] {
+    const array = new Uint8ClampedArray(new ArrayBuffer(SIZE))
+    saveAsBEBytes(array, 0, value)
+    return Array.from(array) as [Byte.Byte, Byte.Byte, Byte.Byte, Byte.Byte]
+}
+
 export function asHalfWords(
     value: Word
 ): [HalfWord.HalfWord, HalfWord.HalfWord] {
@@ -47,9 +58,9 @@ export function asHalfWords(
 
 export function isWord(number: Word | Instruction.Instruction) {
     if (typeof number === "number") {
-        return number >= 0 && number < (1 << bits) >>> 0
+        return number >= 0 && number <= MAX
     } else {
-        return number >= 0n && number < 1n << BigInt(bits.toString())
+        return number >= 0n && number < 1n << BigInt(bits)
     }
 }
 
@@ -76,7 +87,7 @@ export function overflowingAdd(
     processor: Processor,
     withCarry?: boolean
 ): CalculationWithOverflow {
-    console.assert(isWord(lhs) && isWord(rhs))
+    assert(isWord(lhs) && isWord(rhs))
 
     const carryBit = withCarry ? (processor?.getFlag("Carry") ? 1 : 0) : 0
     let result = lhs + rhs + carryBit
@@ -85,7 +96,7 @@ export function overflowingAdd(
     if (!isWord(result)) {
         didOverflow = true
         result = result % ((1 << bits) >>> 0)
-        console.assert(isWord(result))
+        assert(isWord(result))
     }
 
     setFlags({ didOverflow, result }, processor)
@@ -99,7 +110,7 @@ export function overflowingSub(
     processor: Processor,
     withCarry?: boolean
 ): CalculationWithOverflow {
-    console.assert(isWord(lhs) && isWord(rhs))
+    assert(isWord(lhs) && isWord(rhs))
     const carryBit = withCarry ? (processor?.getFlag("Carry") ? 1 : 0) : 0
     let result = lhs - rhs - carryBit
     let didOverflow = false
@@ -107,7 +118,7 @@ export function overflowingSub(
     if (!isWord(result)) {
         didOverflow = true
         result = ((1 << bits) >>> 0) + (result % ((1 << bits) >>> 0))
-        console.assert(isWord(result))
+        assert(isWord(result))
     }
 
     setFlags({ didOverflow, result }, processor)
@@ -120,9 +131,9 @@ export function overflowingMul(
     rhs: Word,
     processor: Processor
 ): CalculationWithOverflow<u64> {
-    console.assert(isWord(lhs) && isWord(rhs))
+    assert(isWord(lhs) && isWord(rhs))
 
-    let result = BigInt(lhs.toString()) * BigInt(rhs.toString())
+    let result = BigInt(lhs) * BigInt(rhs)
     let didOverflow = false
 
     // TODO investigate, in the original the carry flag is set, when the multiplication is overflowing into the high register, is this intended and correct??!
@@ -132,11 +143,67 @@ export function overflowingMul(
 
     if (!Instruction.isInstruction(result)) {
         didOverflow = true
-        result = result % (1n << BigInt(Instruction.bits.toString()))
-        console.assert(Instruction.isInstruction(result))
+        result = result % (1n << BigInt(Instruction.bits))
+        assert(Instruction.isInstruction(result))
     }
 
     setFlags<Instruction.Instruction>({ didOverflow, result }, processor)
+
+    return { didOverflow, result }
+}
+
+export function overflowingLeftShift(
+    lhs: Word,
+    rhs: Word,
+    processor: Processor
+): CalculationWithOverflow {
+    assert(isWord(lhs) && isWord(rhs))
+
+    let temp = rhs > bits ? 0n : BigInt(lhs) << BigInt(rhs)
+    let didOverflow = false
+
+    if (!isWord(temp)) {
+        didOverflow = true
+        temp = temp % (1n << BigInt(bits))
+        assert(isWord(temp))
+    }
+    const [zero, result] = Instruction.asWords(temp)
+    assert(zero === 0)
+
+    // TODO investigate this condition:
+    // processor.set_flag(Flag::Carry, rhs > lhs.leading_zeros());
+
+    setFlags(
+        { didOverflow: rhs > bits ? lhs > 0 : didOverflow, result },
+        processor
+    )
+
+    return { didOverflow, result }
+}
+
+export function overflowingRightShift(
+    lhs: Word,
+    rhs: Word,
+    processor: Processor
+): CalculationWithOverflow {
+    assert(isWord(lhs) && isWord(rhs))
+
+    let result = rhs > bits ? 0 : lhs >> rhs
+    let didOverflow = false
+
+    if (!isWord(result)) {
+        didOverflow = true
+        result = result % (1 << bits)
+        assert(isWord(result))
+    }
+
+    // TODO investigate this condition:
+    // processor.set_flag(Flag::Carry, rhs > lhs.trailing_zeros());
+
+    setFlags(
+        { didOverflow: rhs > bits ? lhs > 0 : didOverflow, result },
+        processor
+    )
 
     return { didOverflow, result }
 }

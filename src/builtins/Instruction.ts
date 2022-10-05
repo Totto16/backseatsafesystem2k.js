@@ -22,7 +22,7 @@ export function saveAsBEBytes(
     value: Instruction
 ): void {
     const newArray: Uint8ClampedArray = new Uint8ClampedArray(
-        bigintToBuf(value as bigint, true)
+        bigintToBuf(value, true)
     )
 
     for (let i = 0; i < SIZE; ++i) {
@@ -42,5 +42,5 @@ export function asWords(value: Instruction): [Word.Word, Word.Word] {
 }
 
 export function isInstruction(number: Instruction) {
-    return number >= 0n && number < 1n << BigInt(bits.toString())
+    return number >= 0n && number < 1n << BigInt(bits)
 }

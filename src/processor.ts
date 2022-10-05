@@ -6,6 +6,8 @@ import * as Instruction from "./builtins/Instruction"
 import { InstructionCache, CachedInstruction } from "./machine"
 import { OpCode } from "./opcodes.generated"
 import * as Byte from "./builtins/Byte"
+import { KeyState } from "./keyboard"
+import assert from "assert"
 
 export const NUM_REGISTERS = 256
 export class Registers {
@@ -26,7 +28,7 @@ export class Registers {
         return new Proxy(this, {
             get(target, prop) {
                 const index =
-                    prop instanceof Register ? prop.value : Number(prop)
+                    prop instanceof Register ? prop.index : Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return self.registers[index].value
@@ -38,7 +40,7 @@ export class Registers {
             },
             set(target, prop, value) {
                 const index =
-                    prop instanceof Register ? prop.value : Number(prop)
+                    prop instanceof Register ? prop.index : Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < self.numRegisters) {
                         return (self.registers[index].value = value)
@@ -54,13 +56,15 @@ export class Registers {
 
 export class Register {
     value: Word.Word
-    constructor(value = 0) {
+    index: number
+    constructor(index: number, value = 0) {
+        this.index = index
         this.value = value
     }
 
     static fromLetter(letter: string): Register {
         // TODO: stub for the moment
-        return new Register()
+        return new Register(letter.charCodeAt(0) - "a".charCodeAt(0))
     }
 }
 
@@ -103,6 +107,53 @@ export enum ExecutionResult {
     Halted,
 }
 
+export type PossibleTypes = "lt" | "le" | "eq" | "gt" | "ge"
+
+export class CompResult {
+    static Less = Word.MAX
+    static Equal = 0
+    static Greater = 1
+
+    static compare(lhs: Word.Word, rhs: Word.Word): CompResult {
+        return lhs < rhs
+            ? CompResult.Less
+            : lhs == rhs
+            ? CompResult.Equal
+            : CompResult.Greater
+    }
+
+    static isCorrect(input: Word.Word, type: PossibleTypes): boolean {
+        let values: Word.Word[]
+        switch (type) {
+            case "lt":
+                values = [CompResult.Less]
+                break
+            case "le":
+                values = [CompResult.Less, CompResult.Equal]
+                break
+            case "eq":
+                values = [CompResult.Equal]
+                break
+            case "gt":
+                values = [CompResult.Greater]
+                break
+            case "ge":
+                values = [CompResult.Greater, CompResult.Equal]
+                break
+            default:
+                throw new Error(`unimplemented Compare Type: ${type}!`)
+                break
+        }
+
+        assert(
+            [CompResult.Less, CompResult.Equal, CompResult.Greater].includes(
+                input
+            )
+        )
+        return values.includes(input)
+    }
+}
+
 export class Processor {
     registers: Registers
     cycleCount: u64
@@ -141,9 +192,7 @@ export class Processor {
     }
 
     setStackPointer(address: Address) {
-        console.assert(
-            address > STACK_START && address - STACK_START < STACK_SIZE
-        )
+        assert(address > STACK_START && address - STACK_START < STACK_SIZE)
         this.registers[this.STACK_POINTER] = address
     }
 
@@ -751,794 +800,1085 @@ export class Processor {
                 }
             }
 
-            /* 
-            OrTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    processor.registers[target] = lhs | rhs;
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            XorTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    processor.registers[target] = lhs ^ rhs;
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            NotTargetSource { target, source } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] = !processor.registers[source];
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            LeftShiftTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    if rhs > Word::BITS {
-                        processor.registers[target] = 0;
-                        processor.set_flag(Flag::Zero, true);
-                        processor.set_flag(Flag::Carry, lhs > 0);
-                    } else {
-                        let result = lhs << rhs;
-                        processor.registers[target] = result;
-                        processor.set_flag(Flag::Zero, result == 0);
-                        processor.set_flag(Flag::Carry, rhs > lhs.leading_zeros());
-                    }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            RightShiftTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    if rhs > Word::BITS {
-                        processor.registers[target] = 0;
-                        processor.set_flag(Flag::Zero, true);
-                        processor.set_flag(Flag::Carry, lhs > 0);
-                    } else {
-                        let result = lhs >> rhs;
-                        processor.registers[target] = result;
-                        processor.set_flag(Flag::Zero, result == 0);
-                        processor.set_flag(Flag::Carry, rhs > lhs.trailing_zeros());
-                    }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            AddTargetSourceImmediate {
-                target,
-                source,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let carry;
-                    (processor.registers[target], carry) =
-                        processor.registers[source].overflowing_add(immediate);
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    processor.set_flag(Flag::Carry, carry);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            SubtractTargetSourceImmediate {
-                target,
-                source,
-                immediate,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        processor.registers[source].wrapping_sub(immediate);
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    processor.set_flag(Flag::Carry, immediate > processor.registers[source]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            CompareTargetLhsRhs { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let lhs = processor.registers[lhs];
-                    let rhs = processor.registers[rhs];
-                    processor.registers[target] = match lhs.cmp(&rhs) {
-                        std::cmp::Ordering::Less => Word::MAX,
-                        std::cmp::Ordering::Equal => 0,
-                        std::cmp::Ordering::Greater => 1,
-                    };
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            PushRegister { register } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.stack_push(memory, processor.registers[register]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            PushImmediate { immediate } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.stack_push(memory, immediate);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            PopRegister { register } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[register] = processor.stack_pop(memory);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            Pop {} => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.stack_pop(memory);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            CallAddress {
-                source_address: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.push_instruction_pointer(memory);
-                    processor.set_instruction_pointer(address);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            Return {} => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let return_address = processor.stack_pop(memory);
-                    processor.set_instruction_pointer(return_address);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpImmediate { immediate: address } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.set_instruction_pointer(address);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpRegister { register } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.set_instruction_pointer(processor.registers[register]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfEqual {
-                comparison,
-                immediate: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        0 => processor.set_instruction_pointer(address),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfGreaterThan {
-                comparison,
-                immediate: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        1 => processor.set_instruction_pointer(address),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfLessThan {
-                comparison,
-                immediate: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        Word::MAX => processor.set_instruction_pointer(address),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfGreaterThanOrEqual {
-                comparison,
-                immediate: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        1 | 0 => processor.set_instruction_pointer(address),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfLessThanOrEqual {
-                comparison,
-                immediate: address,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        Word::MAX | 0 => processor.set_instruction_pointer(address),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfZero { immediate: address } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Zero) {
-                        true => processor.set_instruction_pointer(address),
-                        false => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfNotZero { immediate: address } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Zero) {
-                        false => processor.set_instruction_pointer(address),
-                        true => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfCarry { immediate: address } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Carry) {
-                        true => processor.set_instruction_pointer(address),
-                        false => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfNotCarry { immediate: address } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Carry) {
-                        false => processor.set_instruction_pointer(address),
-                        true => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfDivideByZero { immediate: address } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::DivideByZero) {
-                        true => processor.set_instruction_pointer(address),
-                        false => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpImmediateIfNotDivideByZero { immediate: address } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::DivideByZero) {
-                        false => processor.set_instruction_pointer(address),
-                        true => processor.advance_instruction_pointer(Direction::Forwards),
-                    }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfEqual {
-                pointer,
-                comparison,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        0 => processor.set_instruction_pointer(processor.registers[pointer]),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfGreaterThan {
-                pointer,
-                comparison,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        1 => processor.set_instruction_pointer(processor.registers[pointer]),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfLessThan {
-                pointer,
-                comparison,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        Word::MAX => {
-                            processor.set_instruction_pointer(processor.registers[pointer])
-                        }
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfGreaterThanOrEqual {
-                pointer,
-                comparison,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        1 | 0 => processor.set_instruction_pointer(processor.registers[pointer]),
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfLessThanOrEqual {
-                pointer,
-                comparison,
-            } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.registers[comparison] {
-                        Word::MAX | 0 => {
-                            processor.set_instruction_pointer(processor.registers[pointer])
-                        }
-                        _ => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfZero { pointer } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Zero) {
-                        true => processor.set_instruction_pointer(processor.registers[pointer]),
-                        false => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfNotZero { pointer } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Zero) {
-                        false => processor.set_instruction_pointer(processor.registers[pointer]),
-                        true => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfCarry { pointer } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Carry) {
-                        true => processor.set_instruction_pointer(processor.registers[pointer]),
-                        false => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfNotCarry { pointer } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::Carry) {
-                        false => processor.set_instruction_pointer(processor.registers[pointer]),
-                        true => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfDivideByZero { pointer } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::DivideByZero) {
-                        true => processor.set_instruction_pointer(processor.registers[pointer]),
-                        false => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            JumpRegisterIfNotDivideByZero { pointer } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    match processor.get_flag(Flag::DivideByZero) {
-                        false => processor.set_instruction_pointer(processor.registers[pointer]),
-                        true => processor.advance_instruction_pointer(Direction::Forwards),
-                    };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            NoOp {} => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            GetKeyState { target, keycode } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] = matches!(
-                        periphery
-                            .keyboard()
-                            .get_keystate(processor.registers[keycode] as _),
-                        KeyState::Down
+            case "OrTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"OrTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs | rhs
+                    processor.registers[target] = result
+                    processor.setFlag("Zero", result === 0)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "XorTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"XorTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs ^ rhs
+                    processor.registers[target] = result
+                    processor.setFlag("Zero", result === 0)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "NotTargetSource": {
+                const { target, source } = (opCode as OpCode<"NotTargetSource">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const result = !processor.registers[target]
+                    processor.registers[target] = result
+                    processor.setFlag("Zero", result === 0)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "LeftShiftTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"LeftShiftTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+                    const { result, didOverflow } = Word.overflowingLeftShift(
+                        lhs,
+                        rhs,
+                        processor
                     )
-                    .into();
-                    processor.set_flag(Flag::Zero, processor.registers[target] == 0);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            PollTime { high, low } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      periphery: &mut ConcretePeriphery| {
-                    let time = periphery.timer().get_ms_since_epoch();
-                    processor.registers[low] = time as Word;
-                    processor.registers[high] = (time >> Word::BITS) as Word;
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-           
-            CallRegister { register } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.push_instruction_pointer(memory);
-                    processor.set_instruction_pointer(processor.registers[register]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            CallPointer { pointer } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.push_instruction_pointer(memory);
-                    processor
-                        .set_instruction_pointer(memory.read_data(processor.registers[pointer]));
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            SwapFramebuffers {} => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      periphery: &mut ConcretePeriphery| {
-                    periphery.display().swap();
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            InvisibleFramebufferAddress { target } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        periphery.display().invisible_framebuffer_address();
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            PollCycleCountHighLow { high, low } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[low] = processor.cycle_count as Word;
-                    processor.registers[high] = (processor.cycle_count >> Word::BITS) as Word;
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            DumpRegisters {} => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    let data: Vec<_> = processor
-                        .registers
-                        .0
-                        .iter()
-                        .flat_map(|word| word.to_be_bytes())
-                        .collect();
-                    if let Err(error) = dumper::dump("registers", &data) {
-                        eprintln!("Error dumping registers: {}", error);
+
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "RightShiftTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"RightShiftTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs: Word.Word = processor.registers[lhs]
+                    const rhs: Word.Word = processor.registers[rhs]
+                    const { result, didOverflow } = Word.overflowingRightShift(
+                        lhs,
+                        rhs,
+                        processor
+                    )
+
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "AddTargetSourceImmediate": {
+                const { target, source, immediate } = (
+                    opCode as OpCode<"AddTargetSourceImmediate">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const { result, didOverflow } = Word.overflowingAdd(
+                        processor.registers[source],
+                        immediate,
+                        processor,
+                        true
+                    )
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "SubtractTargetSourceImmediate": {
+                const { target, source, immediate } = (
+                    opCode as OpCode<"SubtractTargetSourceImmediate">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const { result, didOverflow } = Word.overflowingSub(
+                        processor.registers[source],
+                        immediate,
+                        processor,
+                        true
+                    )
+                    processor.registers[target] = result
+                    return ExecutionResult.Normal
+                }
+            }
+            case "CompareTargetLhsRhs": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"CompareTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = CompResult.compare(lhs, rhs)
+                    processor.registers[target] = result
+                    processor.setFlag("Zero", result === 0)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "PushRegister": {
+                const { register } = (opCode as OpCode<"PushRegister">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.stackPush(memory, processor.registers[register])
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "PushImmediate": {
+                const { immediate } = (opCode as OpCode<"PushImmediate">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.stackPush(memory, immediate)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "PopRegister": {
+                const { register } = (opCode as OpCode<"PopRegister">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[register] = processor.stackPop(memory)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "Pop": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.stackPop(memory)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "CallAddress": {
+                const { source_address: address } = (
+                    opCode as OpCode<"CallAddress">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.pushInstructionPointer(memory)
+                    processor.setInstructionPointer(address)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "Return": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const returnAddress = processor.stackPop(memory)
+                    processor.setInstructionPointer(returnAddress)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediate": {
+                const { immediate: address } = (
+                    opCode as OpCode<"JumpImmediate">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.setInstructionPointer(address)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegister": {
+                const { register } = (opCode as OpCode<"JumpRegister">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.setInstructionPointer(
+                        processor.registers[register]
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfEqual": {
+                const { comparison, immediate: address } = (
+                    opCode as OpCode<"AndTargetLhsRhs">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "eq"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
                     }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            DumpMemory {} => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    if let Err(error) = dumper::dump("memory", memory.data()) {
-                        eprintln!("Error dumping memory: {}", error);
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfGreaterThan": {
+                const { comparison, immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfGreaterThan">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "gt"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
                     }
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            AssertRegisterRegister { expected, actual } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    assert_eq!(processor.registers[actual], processor.registers[expected]);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            AssertRegisterImmediate { actual, immediate } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    assert_eq!(processor.registers[actual], immediate);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            AssertPointerImmediate { pointer, immediate } => Box::new(
-                move |processor: &mut Processor,
-                      memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    assert_eq!(memory.read_data(processor.registers[pointer]), immediate);
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            DebugBreak {} => Box::new(
-                move |_processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery|
-                      -> ExecutionResult {
-                    panic!();
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            PrintRegister { register } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    eprintln!(
-                        "value of register {:#x}: {:#x} ({})",
-                        register.0, processor.registers[register], processor.registers[register]
-                    );
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>,
-            BoolCompareEquals { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        if processor.registers[lhs] == processor.registers[rhs] {
-                            1
-                        } else {
-                            0
-                        };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            BoolCompareNotEquals { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        if processor.registers[lhs] == processor.registers[rhs] {
-                            0
-                        } else {
-                            1
-                        };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            BoolCompareGreater { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        if processor.registers[lhs] > processor.registers[rhs] {
-                            1
-                        } else {
-                            0
-                        };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            BoolCompareGreaterOrEquals { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        if processor.registers[lhs] >= processor.registers[rhs] {
-                            1
-                        } else {
-                            0
-                        };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            BoolCompareLess { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        if processor.registers[lhs] < processor.registers[rhs] {
-                            1
-                        } else {
-                            0
-                        };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            BoolCompareLessOrEquals { target, lhs, rhs } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    processor.registers[target] =
-                        if processor.registers[lhs] <= processor.registers[rhs] {
-                            1
-                        } else {
-                            0
-                        };
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            )
-                as CachedInstruction<ConcretePeriphery>,
-            Checkpoint { immediate } => Box::new(
-                move |processor: &mut Processor,
-                      _memory: &mut Memory,
-                      _periphery: &mut ConcretePeriphery| {
-                    if immediate != processor.checkpoint_counter {
-                        panic!(
-                            "checkpoint counter mismatch: expected {}, got {}",
-                            processor.checkpoint_counter, immediate
-                        );
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfLessThan": {
+                const { comparison, immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfLessThan">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "lt"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
                     }
-                    processor.checkpoint_counter += 1;
-                    handleCycleCountAndInstructionPointer(processor);
-                    ExecutionResult.Normal
-                },
-            ) as CachedInstruction<ConcretePeriphery>, */
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfGreaterThanOrEqual": {
+                const { comparison, immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfGreaterThanOrEqual">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "ge"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfLessThanOrEqual": {
+                const { comparison, immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfLessThanOrEqual">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "le"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfZero": {
+                const { immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfZero">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (processor.getFlag("Zero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfNotZero": {
+                const { immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfNotZero">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (!processor.getFlag("Zero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfCarry": {
+                const { immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfCarry">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (!processor.getFlag("Carry")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfNotCarry": {
+                const { immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfNotCarry">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (!processor.getFlag("Carry")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfDivideByZero": {
+                const { immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfDivideByZero">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (!processor.getFlag("DivideByZero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpImmediateIfNotDivideByZero": {
+                const { immediate: address } = (
+                    opCode as OpCode<"JumpImmediateIfNotDivideByZero">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (!processor.getFlag("DivideByZero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfEqual": {
+                const { pointer, comparison } = (
+                    opCode as OpCode<"JumpRegisterIfEqual">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "eq"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfGreaterThan": {
+                const { pointer, comparison } = (
+                    opCode as OpCode<"JumpRegisterIfGreaterThan">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "gt"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfLessThan": {
+                const { pointer, comparison } = (
+                    opCode as OpCode<"JumpRegisterIfLessThan">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "lt"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfGreaterThanOrEqual": {
+                const { pointer, comparison } = (
+                    opCode as OpCode<"JumpRegisterIfGreaterThanOrEqual">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "ge"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfLessThanOrEqual": {
+                const { pointer, comparison } = (
+                    opCode as OpCode<"JumpRegisterIfLessThanOrEqual">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (
+                        CompResult.isCorrect(
+                            processor.registers[comparison],
+                            "le"
+                        )
+                    ) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfZero": {
+                const { pointer } = (opCode as OpCode<"JumpRegisterIfZero">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (processor.getFlag("Zero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfNotZero": {
+                const { pointer } = (opCode as OpCode<"JumpRegisterIfNotZero">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (!processor.getFlag("Zero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfCarry": {
+                const { pointer } = (opCode as OpCode<"JumpRegisterIfCarry">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (processor.getFlag("Carry")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfNotCarry": {
+                const { pointer } = (opCode as OpCode<"JumpRegisterIfNotCarry">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (!processor.getFlag("Carry")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfDivideByZero": {
+                const { pointer } = (
+                    opCode as OpCode<"JumpRegisterIfDivideByZero">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (processor.getFlag("DivideByZero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "JumpRegisterIfNotDivideByZero": {
+                const { pointer } = (
+                    opCode as OpCode<"JumpRegisterIfNotDivideByZero">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = processor.registers[pointer]
+                    if (!processor.getFlag("DivideByZero")) {
+                        processor.setInstructionPointer(address)
+                    } else {
+                        processor.advanceInstructionPointer(Direction.Forwards)
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "NoOp": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "GetKeyState": {
+                const { target, keycode } = (opCode as OpCode<"GetKeyState">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const result =
+                        periphery.keyboard.getKeyState(
+                            processor.registers[keycode]
+                        ) == KeyState.Down
+                    processor.registers[target] = result
+                    processor.setFlag("Zero", result === 0)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "PollTime": {
+                const { high, low } = (opCode as OpCode<"PollTime">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const time = periphery.timer.getMsSinceEpoch()
+                    const [upper, lower] = Instruction.asWords(time)
+                    processor.registers[low] = upper
+                    processor.registers[high] = lower
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "CallRegister": {
+                const { register } = (opCode as OpCode<"CallRegister">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.pushInstructionPointer(memory)
+                    processor.setInstructionPointer(
+                        processor.registers[register]
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "CallPointer": {
+                const { pointer } = (opCode as OpCode<"CallPointer">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const address = memory.readData(
+                        processor.registers[pointer]
+                    )
+                    processor.pushInstructionPointer(memory)
+                    processor.setInstructionPointer(address)
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "SwapFramebuffers": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    periphery.display.swap()
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "InvisibleFramebufferAddress": {
+                const { target } = (
+                    opCode as OpCode<"InvisibleFramebufferAddress">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers[target] =
+                        periphery.display.InvisibleFramebufferAddress()
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "PollCycleCountHighLow": {
+                const { high, low } = (
+                    opCode as OpCode<"PollCycleCountHighLow">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const cycles = processor.cycleCount
+                    const [upper, lower] = Instruction.asWords(cycles)
+                    processor.registers[low] = upper
+                    processor.registers[high] = lower
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+
+            // TODO here also make this visible, by default, also make an event, that is executed when a register / memory byte changes (only available in slow or step mode!!
+            case "DumpRegisters": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    processor.registers.registers.forEach((word, index) => {
+                        const bytes = Word.toBEBytes(word)
+                        console.debug(
+                            `Register r${index} = ${bytes
+                                .map((byte) => Word.toHexString([byte]))
+                                .join(" ")}`
+                        )
+                    })
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "DumpMemory": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    console.debug(
+                        ` ---- Memory - SIZE ${Memory.SIZE} Bytes ---- `
+                    )
+                    const stepSize = 16
+                    for (const i = 0; i < Memory.SIZE; i += stepSize) {
+                        const data = memory.data.slice(i, i + stepSize)
+                        const [upper, lower] = Instruction.asWords(
+                            BigInt(i)
+                        ).map((word) => Word.toBEBytes(word))
+                        const bytes = [...upper, ...lower]
+                        console.debug(
+                            `${Byte.toHexString(bytes)} : ${data
+                                .map((byte) => `0x${Byte.toHexString(byte)}`)
+                                .join(" ")}`
+                        )
+                    }
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "AssertRegisterRegister": {
+                const { expected, actual } = (
+                    opCode as OpCode<"AssertRegisterRegister">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    assert(
+                        processor.registers[actual] ===
+                            processor.registers[expected],
+                        "opCode: AssertRegisterRegister"
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "AssertRegisterImmediate": {
+                const { actual, immediate } = (
+                    opCode as OpCode<"AssertRegisterImmediate">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    assert(
+                        processor.registers[actual] === immediate,
+                        "opCode: AssertRegisterImmediate"
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "AssertPointerImmediate": {
+                const { pointer, immediate } = (
+                    opCode as OpCode<"AssertPointerImmediate">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    assert(
+                        memory.readData(processor.registers[pointer]) ===
+                            immediate,
+                        "opCode: AssertPointerImmediate"
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "DebugBreak": {
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    throw new Error("panic")
+                }
+            }
+            case "PrintRegister": {
+                const { register } = (opCode as OpCode<"PrintRegister">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const bytes = Word.toBEBytes(processor.registers[register])
+                    console.debug(
+                        `Register r${index} = ${bytes
+                            .map((byte) => Word.toHexString([byte]))
+                            .join(" ")}`
+                    )
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "BoolCompareEquals": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"BoolCompareEquals">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    assert(Byte.isBool(lhs) && Byte.isBool(rhs))
+                    const result = lhs === rhs
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "BoolCompareNotEquals": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"BoolCompareNotEquals">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs !== rhs
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "BoolCompareGreater": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"BoolCompareGreater">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs > rhs
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "BoolCompareGreaterOrEquals": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"BoolCompareGreaterOrEquals">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs >= rhs
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "BoolCompareLess": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"BoolCompareLess">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs < rhs
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "BoolCompareLessOrEquals": {
+                const { target, lhs, rhs } = (
+                    opCode as OpCode<"BoolCompareLessOrEquals">
+                ).parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    const lhs = processor.registers[lhs]
+                    const rhs = processor.registers[rhs]
+                    const result = lhs <= rhs
+                    processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
+            case "Checkpoint": {
+                const { immediate } = (opCode as OpCode<"Checkpoint">)
+                    .parsedInstruction
+                return function (
+                    processor: Processor,
+                    memory: Memory,
+                    periphery: Periphery
+                ): ExecutionResult {
+                    if (immediate != processor.checkpoint_counter) {
+                        assert(
+                            false,
+                            `checkpoint counter mismatch: expected ${processor.checkpointCounter}, got ${immediate}`
+                        )
+                    }
+                    processor.checkpointCounter += 1
+                    handleCycleCountAndInstructionPointer(processor)
+                    return ExecutionResult.Normal
+                }
+            }
 
             default:
                 throw new Error(`unimplemented operation Code: ${opCode.name}!`)

@@ -43,3 +43,13 @@ export function toByte(input: Word.Word) {
 export function isByte(number: Word.Word) {
     return number >= 0 && number < 1 << bits
 }
+
+export function toHexString(
+    values: Byte[],
+    includeLeadingNullBytes = false
+): string {
+    const bytes = includeLeadingNullBytes
+        ? values
+        : values.filter((a) => a !== 0)
+    return `0x${bytes.map((byte) => byte.toString(16).toUpperCase()).join("")}`
+}

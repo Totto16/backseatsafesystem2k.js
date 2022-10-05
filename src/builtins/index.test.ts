@@ -194,14 +194,14 @@ test("Instruction conversion works", () => {
     }
     // >>> is weird js for converting 32 bit signed ints into 32 bit unsigned ints!
     const BESum: Instruction.Instruction = values
-        .map((a) => BigInt(a.toString()))
+        .map((a) => BigInt(a))
         .reduce(
             (acc, el, index) =>
                 acc +
                 (el <<
-                    (BigInt(Byte.bits.toString()) *
-                        (BigInt(values.length.toString()) -
-                            BigInt(index.toString()) -
+                    (BigInt(Byte.bits) *
+                        (BigInt(values.length) -
+                            BigInt(index) -
                             1n))),
             0n
         )
