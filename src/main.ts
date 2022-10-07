@@ -319,9 +319,10 @@ export function run(
         clockFrequencyAverage: 0n,
     }
 
-    let stopVM = false
 
-    while (!stopVM) {
+    while (!machine.isHalted) {
+        console.debug("Running next machine cycle")
+
         const currentTime = timer.getMsSinceEpoch()
         renderIfNeeded(currentTime, timeMeasurements, handle, machine)
 

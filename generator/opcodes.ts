@@ -37,10 +37,12 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
     parsedInstruction:ParsedInstruction<T>
 
     constructor(instruction: Instruction.Instruction) {
+        console.debug(`Now parsing instruction: ${Instruction.toHexString(instruction)}`)
         const {name, parsedInstruction} = this.parseInstruction(instruction)
         this.instruction = instruction
         this.parsedInstruction = parsedInstruction;
         this.name = name;
+        console.debug("Parsed Instruction: ", this);
     }
 
     static getNameByInstruction<T extends OpCodeNames = OpCodeNames>(

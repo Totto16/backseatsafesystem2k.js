@@ -143,7 +143,7 @@ export class CompResult {
     static Equal = 0
     static Greater = 1
 
-    static compare(lhs: Word.Word, rhs: Word.Word): CompResult {
+    static compare(lhs: Word.Word, rhs: Word.Word): number {
         return lhs < rhs
             ? CompResult.Less
             : lhs == rhs
@@ -299,6 +299,10 @@ export class Processor {
             //TODO then get the instruction in the memory, may cause unsafe code execution (alias dynamical code loaded into memory)
             throw new Error("trying to read undefined instruction")
         }
+        console.debug(
+            `Now executing instruction: `,
+            memory.readOpcode(instructionAddress)
+        )
         return instruction(this, memory, periphery)
     }
 
@@ -673,7 +677,7 @@ export class Processor {
                     return ExecutionResult.Halted
                 }
             }
-            /*
+
             case "AddTargetLhsRhs": {
                 const { target, lhs, rhs } = (
                     opCode as OpCode<"AddTargetLhsRhs">
@@ -683,11 +687,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
                     const { result, didOverflow } = Word.overflowingAdd(
-                        lhs,
-                        rhs,
+                        lValue,
+                        rValue,
                         processor
                     )
                     processor.registers[target] = result
@@ -704,11 +708,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
                     const { result, didOverflow } = Word.overflowingAdd(
-                        lhs,
-                        rhs,
+                        lValue,
+                        rValue,
                         processor,
                         true
                     )
@@ -727,11 +731,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
                     const { result, didOverflow } = Word.overflowingSub(
-                        lhs,
-                        rhs,
+                        lValue,
+                        rValue,
                         processor
                     )
                     processor.registers[target] = result
@@ -749,11 +753,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
                     const { result, didOverflow } = Word.overflowingSub(
-                        lhs,
-                        rhs,
+                        lValue,
+                        rValue,
                         processor,
                         true
                     )
@@ -772,14 +776,14 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
                     const { result, didOverflow } = Word.overflowingMul(
-                        lhs,
-                        rhs,
+                        lValue,
+                        rValue,
                         processor
                     )
-                    const { upper, lower } = Instruction.asWords(result)
+                    const [upper, lower] = Instruction.asWords(result)
                     processor.registers[high] = upper
                     processor.registers[low] = lower
                     handleCycleCountAndInstructionPointer(processor)
@@ -796,16 +800,19 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
 
                     if (rhs == 0) {
                         processor.registers[result] = 0
-                        processor.registers[remainder] = lhs
-                        processor.set_flag("Zero", true)
-                        processor.set_flag("DivideByZero", true)
+                        processor.registers[remainder] = lValue
+                        processor.setFlag("Zero", true)
+                        processor.setFlag("DivideByZero", true)
                     } else {
-                        const [div, mod] = [Math.floor(lhs / rhs), lhs % rhs]
+                        const [div, mod] = [
+                            Math.floor(lValue / rValue),
+                            lValue % rValue,
+                        ]
 
                         processor.registers[result] = div
                         processor.registers[remainder] = mod
@@ -827,9 +834,9 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs & rhs
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue & rValue
                     processor.registers[target] = result
                     processor.setFlag("Zero", result === 0)
                     handleCycleCountAndInstructionPointer(processor)
@@ -846,9 +853,9 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs | rhs
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue | rValue
                     processor.registers[target] = result
                     processor.setFlag("Zero", result === 0)
                     handleCycleCountAndInstructionPointer(processor)
@@ -864,9 +871,9 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs ^ rhs
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue ^ rValue
                     processor.registers[target] = result
                     processor.setFlag("Zero", result === 0)
                     handleCycleCountAndInstructionPointer(processor)
@@ -882,8 +889,8 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     const result = !processor.registers[target]
-                    processor.registers[target] = result
-                    processor.setFlag("Zero", result === 0)
+                    processor.registers[target] = result ? 1 : 0
+                    processor.setFlag("Zero", result)
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -897,11 +904,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
                     const { result, didOverflow } = Word.overflowingLeftShift(
-                        lhs,
-                        rhs,
+                        lValue,
+                        rValue,
                         processor
                     )
 
@@ -919,11 +926,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs: Word.Word = processor.registers[lhs]
-                    const rhs: Word.Word = processor.registers[rhs]
+                    const lValue: Word.Word = processor.registers[lhs]
+                    const rValue: Word.Word = processor.registers[rhs]
                     const { result, didOverflow } = Word.overflowingRightShift(
-                        lhs,
-                        rhs,
+                        lValue,
+                        rValue,
                         processor
                     )
 
@@ -980,16 +987,16 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = CompResult.compare(lhs, rhs)
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = CompResult.compare(lValue, rValue)
                     processor.registers[target] = result
                     processor.setFlag("Zero", result === 0)
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
             }
-            */
+
             case "PushRegister": {
                 const { register } = (opCode as OpCode<"PushRegister">)
                     .parsedInstruction
@@ -1794,7 +1801,7 @@ export class Processor {
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
-            } /*
+            }
             case "BoolCompareEquals": {
                 const { target, lhs, rhs } = (
                     opCode as OpCode<"BoolCompareEquals">
@@ -1804,11 +1811,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    assert(Byte.isBool(lhs) && Byte.isBool(rhs))
-                    const result = lhs === rhs
-                    processor.registers[target] = result
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    assert(Byte.isBool(lValue) && Byte.isBool(rValue))
+                    const result = lValue === rValue
+                    processor.registers[target] = result ? 1 : 0
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -1822,10 +1829,10 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs !== rhs
-                    processor.registers[target] = result
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue !== rValue
+                    processor.registers[target] = result ? 1 : 0
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -1839,10 +1846,10 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs > rhs
-                    processor.registers[target] = result
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue > rValue
+                    processor.registers[target] = result ? 1 : 0
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -1856,10 +1863,10 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs >= rhs
-                    processor.registers[target] = result
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue >= rValue
+                    processor.registers[target] = result ? 1 : 0
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -1873,10 +1880,10 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs < rhs
-                    processor.registers[target] = result
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue < rValue
+                    processor.registers[target] = result ? 1 : 0
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -1890,15 +1897,15 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    const lhs = processor.registers[lhs]
-                    const rhs = processor.registers[rhs]
-                    const result = lhs <= rhs
-                    processor.registers[target] = result
+                    const lValue = processor.registers[lhs]
+                    const rValue = processor.registers[rhs]
+                    const result = lValue <= rValue
+                    processor.registers[target] = result ? 1 : 0
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
             }
-            */
+
             case "Checkpoint": {
                 const { immediate } = (opCode as OpCode<"Checkpoint">)
                     .parsedInstruction

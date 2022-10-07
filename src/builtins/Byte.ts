@@ -53,3 +53,7 @@ export function toHexString(
         : values.filter((a) => a !== 0)
     return `0x${bytes.map((byte) => byte.toString(16).toUpperCase()).join("")}`
 }
+
+export function isBool(number : u8){
+    return number === 0 || number === 1
+}
