@@ -200,9 +200,7 @@ test("Instruction conversion works", () => {
                 acc +
                 (el <<
                     (BigInt(Byte.bits) *
-                        (BigInt(values.length) -
-                            BigInt(index) -
-                            1n))),
+                        (BigInt(values.length) - BigInt(index) - 1n))),
             0n
         )
 
@@ -244,4 +242,26 @@ test("Instruction conversion works", () => {
             new Uint8ClampedArray(array.buffer, Word.SIZE, Word.SIZE)
         ),
     ])
+
+    const amount = 10
+
+    const longArray: Uint8ClampedArray = new Uint8ClampedArray(
+        new ArrayBuffer(Instruction.SIZE * amount)
+    )
+
+    for (let i = 0; i < values.length; ++i) {
+        longArray[Instruction.SIZE * (amount - 1) + i] = values[i]
+    }
+
+    const slicedArray: Uint8ClampedArray = new Uint8ClampedArray(
+        longArray.buffer,
+        Instruction.SIZE * (amount - 1),
+        Instruction.SIZE
+    )
+
+    expect(slicedArray.length).toBe(Instruction.SIZE)
+
+    const result = Instruction.fromBEBytes(slicedArray)
+
+    expect(result).toBe(BESum)
 })

@@ -14,7 +14,13 @@ export type Instruction = u64
 export const bits = Byte.bits * SIZE
 
 export function fromBEBytes(array: Uint8ClampedArray): Instruction {
-    return BigInt.asUintN(64, new DataView(array.buffer).getBigUint64(0, false))
+    return BigInt.asUintN(
+        64,
+        new DataView(array.buffer, array.byteOffset, SIZE).getBigUint64(
+            0,
+            false
+        )
+    )
 }
 
 export function saveAsBEBytes(
@@ -35,7 +41,7 @@ export function saveAsBEBytes(
 }
 
 export function asWords(value: Instruction): [Word.Word, Word.Word] {
-    const binaryString = value.toString(2)
+    const binaryString = value.toString(2).padStart(bits, "0")
     return [
         binaryString.substring(0, Word.SIZE * Byte.bits),
         binaryString.substring(Word.SIZE * Byte.bits),

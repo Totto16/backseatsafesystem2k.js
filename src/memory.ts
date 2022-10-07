@@ -9,6 +9,9 @@ import { assert } from "./builtins/utils"
 
 export type Tuple<A, B> = [A, B]
 
+// wether to convert values out of range automatically or throw an error
+export const IMPLICIT_CONVERSION = true
+
 export class Memory {
     private _data: Uint8ClampedArray
     static SIZE: number = 16 * 1024 * 1024
@@ -69,19 +72,50 @@ export class Memory {
 
     writeData(address: Address, data: Word.Word) {
         assert(address % Instruction.SIZE, 0)
-        assert(Word.isWord(data))
+        assert<Word.Word, boolean>(
+            data,
+            true,
+            "Input wasn't a Word",
+            (a, b) => Word.isWord(a) === b,
+            IMPLICIT_CONVERSION
+        )
+        if (IMPLICIT_CONVERSION) {
+            data = Word.toWord(data)
+        }
+
         Word.saveAsBEBytes(this._data, address, data)
     }
 
     writeHalfWord(address: Address, data: HalfWord.HalfWord) {
         assert(address % Instruction.SIZE, 0)
-        assert(HalfWord.isHalfWord(data))
+        assert<HalfWord.HalfWord, boolean>(
+            data,
+            true,
+            "Input wasn't a HalfWord",
+            (a, b) => HalfWord.isHalfWord(a) === b,
+            IMPLICIT_CONVERSION
+        )
+        
+        if (IMPLICIT_CONVERSION) {
+            data = HalfWord.toHalfWord(data)
+        }
+        
         HalfWord.saveAsBEBytes(this._data, address, data)
     }
 
     writeByte(address: Address, data: Byte.Byte) {
         assert(address % Instruction.SIZE, 0)
-        assert(Byte.isByte(data))
+        assert<Byte.Byte, boolean>(
+            data,
+            true,
+            "Input wasn't a Byte",
+            (a, b) => Byte.isByte(a) === b,
+            IMPLICIT_CONVERSION
+        )
+        if (IMPLICIT_CONVERSION) {
+            data = Byte.toByte(data)
+        }
+
         Byte.saveAsBEBytes(this._data, address, data)
     }
 }

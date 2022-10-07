@@ -50,7 +50,7 @@ export function toBEBytes(value: Word): WordBytes {
 export function asHalfWords(
     value: Word
 ): [HalfWord.HalfWord, HalfWord.HalfWord] {
-    const binaryString = value.toString(2)
+    const binaryString = value.toString(2).padStart(bits, "0")
     return [
         binaryString.substring(0, HalfWord.SIZE * Byte.bits),
         binaryString.substring(HalfWord.SIZE * Byte.bits),
@@ -208,4 +208,8 @@ export function overflowingRightShift(
     )
 
     return { didOverflow, result }
+}
+
+export function toWord(input: Word) {
+    return Byte.clamp(input, 0, (1 << bits) - 1)
 }

@@ -12,14 +12,13 @@ import { assert } from "../src/builtins/utils"
 // all possible registers, each u8
 // immediate , source_address or target_address - u32
 
-
-
-export type ParsedInstruction<T extends OpCodeNames> = OpCodeBasics & ParsedRegister<T> & ParsedRest<T>
-
+export type ParsedInstruction<T extends OpCodeNames> = OpCodeBasics &
+    ParsedRegister<T> &
+    ParsedRest<T>
 
 export type ParsedRegister<T extends OpCodeNames> = {
     [key in keyof typeof opDefinitions[T]["types"]["registers"]]: u8
-} 
+}
 
 export type ParsedRest<T extends OpCodeNames> = {
     [key in keyof typeof opDefinitions[T]["types"]["rest"]]: u32
@@ -30,19 +29,17 @@ export interface ParserResult<T extends OpCodeNames> {
     parsedInstruction: ParsedInstruction<T>
 }
 
-
 export class OpCode<T extends OpCodeNames = OpCodeNames> {
     private instruction: Instruction.Instruction
     name: T
-    parsedInstruction:ParsedInstruction<T>
+    parsedInstruction: ParsedInstruction<T>
 
     constructor(instruction: Instruction.Instruction) {
-        console.debug(`Now parsing instruction: ${Instruction.toHexString(instruction)}`)
-        const {name, parsedInstruction} = this.parseInstruction(instruction)
+        const { name, parsedInstruction } = this.parseInstruction(instruction)
         this.instruction = instruction
-        this.parsedInstruction = parsedInstruction;
-        this.name = name;
-        console.debug("Parsed Instruction: ", this);
+        this.parsedInstruction = parsedInstruction
+        this.name = name
+        console.debug("Parsed Instruction: ", this)
     }
 
     static getNameByInstruction<T extends OpCodeNames = OpCodeNames>(
@@ -67,44 +64,41 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         return value
     }
 
-    parseInstruction(instruction : Instruction.Instruction): ParserResult<T>   {
+    parseInstruction(instruction: Instruction.Instruction): ParserResult<T> {
         const name = OpCode.getNameByInstruction<T>(instruction)
 
-        const {
-            opCode,
-            cycles,
-            registers,
-            rest,
-            increment,
-        } = opDefinitions[name] as (typeof opDefinitions[T]) & {rest?:string}
+        const { opCode, cycles, registers, rest, increment } = opDefinitions[
+            name
+        ] as typeof opDefinitions[T] & { rest?: string }
 
         const actualBits =
             HalfWord.bits +
             registers.length * Byte.bits +
             (rest === undefined ? 0 : Word.bits)
         assert(
-            actualBits <= Instruction.bits,
-            true,
-            `OPCode is wrongfully formatted, it can only hold ${Instruction.bits} bits, but holds ${actualBits} bits!`
+            actualBits,
+            Instruction.bits,
+            `OPCode is wrongfully formatted, it can only hold ${Instruction.bits} bits, but holds ${actualBits} bits!`,
+            "<="
         )
 
         const [, , ...bytes] = Instruction.toBEBytes(instruction)
 
-        const parsedRegisters : ParsedRegister<T> = (registers as (ParsedRegister<T>[keyof ParsedRegister<T>])[]).reduce<ParsedRegister<T>>(
-            (acc, name, index) => {
+        const parsedRegisters: ParsedRegister<T> = (
+            registers as ParsedRegister<T>[keyof ParsedRegister<T>][]
+        ).reduce<ParsedRegister<T>>((acc, name, index) => {
             return { ...acc, [name]: bytes[index] }
         }, <ParsedRegister<T>>{})
 
         const [, word] = Instruction.asWords(instruction)
-        const parsedRest : ParsedRest<T>  =
-            (rest === undefined
-                ? {} 
+        const parsedRest: ParsedRest<T> = (
+            rest === undefined
+                ? {}
                 : {
-                    [rest]: word,
-                })as ParsedRest<T>
-
-        
-        const parsedInstruction  : ParsedInstruction<T>  = {
+                      [rest]: word,
+                  }
+        ) as ParsedRest<T>
+        const parsedInstruction: ParsedInstruction<T> = {
             opCode,
             cycles,
             increment,
@@ -112,7 +106,7 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
             ...parsedRegisters,
         }
 
-        return {name, parsedInstruction}
+        return { name, parsedInstruction }
     }
 
     asInstruction(): Instruction.Instruction {

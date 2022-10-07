@@ -32,10 +32,10 @@ export function render(
     cursor: Cursor,
     display: Display
 ) {
-    const cursor_pointer = memory.readData(TERMINAL_CURSOR_POINTER)
+    const cursorPointer = memory.readData(TERMINAL_CURSOR_POINTER)
     assert(TERMINAL_BUFFER_START, 0) // to assume we get no overflow
 
-    const cursorIndex = cursor_pointer - TERMINAL_BUFFER_START
+    const cursorIndex = cursorPointer - TERMINAL_BUFFER_START
     const cursorRow = cursorIndex / WIDTH
     const cursorColumn = cursorIndex % WIDTH
 

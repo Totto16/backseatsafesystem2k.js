@@ -51,9 +51,14 @@ export function toHexString(
     const bytes = includeLeadingNullBytes
         ? values
         : values.filter((a) => a !== 0)
-    return `0x${bytes.map((byte) => byte.toString(16).toUpperCase()).join("")}`
+    if (bytes.length === 0) {
+        bytes.push(0)
+    }
+    return `0x${bytes
+        .map((byte) => byte.toString(16).toUpperCase().padStart(2, "0"))
+        .join("")}`
 }
 
-export function isBool(number : u8){
+export function isBool(number: u8) {
     return number === 0 || number === 1
 }

@@ -6,6 +6,7 @@ import { ExecutionResult, Processor } from "./processor"
 import { TERMINAL_CURSOR_MODE, ENTRY_POINT } from "./address_constants"
 import { Cursor } from "./cursor"
 import { DrawHandle, render as terminalRender } from "./terminal"
+import { assert } from "./builtins/utils"
 
 export type CachedInstruction = (
     processor: Processor,
@@ -24,9 +25,10 @@ export class Machine {
     isHalted: boolean
     instructionCache: InstructionCache
 
+    static MAX_NUM_INSTRUCTIONS = Memory.SIZE / Instruction.SIZE
+
     constructor(periphery: Periphery, exitOnHalt: boolean) {
-        const MAX_NUM_INSTRUCTIONS: number = Memory.SIZE / Instruction.SIZE
-        const cache: undefined[] = new Array(MAX_NUM_INSTRUCTIONS).fill(
+        const cache: undefined[] = new Array(Machine.MAX_NUM_INSTRUCTIONS).fill(
             undefined
         )
 
@@ -39,21 +41,42 @@ export class Machine {
         }
     }
 
-    generateInstructionCache() {
-        const MAX_NUM_INSTRUCTIONS: number = Memory.SIZE / Instruction.SIZE
-        const cache = new Array(MAX_NUM_INSTRUCTIONS)
-            .fill(undefined)
-            .map((previous, i) => {
-                const address = i * Instruction.SIZE
-                if (address >= ENTRY_POINT) {
-                    const opCode=
-                        this.memory.readOpcode(address)
-                    return Processor.generateCachedInstruction(opCode)
-                }
-                return previous
-            })
+    // Attention, Size and start is in bytes, so multiply by Instruction.SIZE if necessary
+    generateInstructionCache(start?: number, size?: number) {
+        const genrateSize =
+            size !== undefined
+                ? size / Instruction.SIZE
+                : Machine.MAX_NUM_INSTRUCTIONS
+        const generateStart = start !== undefined ? start / Instruction.SIZE : 0
 
-        this.instructionCache.cache = cache
+        if (size) {
+            assert(
+                size % Instruction.SIZE,
+                0,
+                `The size must be a multiple of Instruction.SIZE: ${Instruction.SIZE}`
+            )
+        }
+        if (start) {
+            assert(
+                start % Instruction.SIZE,
+                0,
+                `The start must be a multiple of Instruction.SIZE: ${Instruction.SIZE}`
+            )
+        }
+
+        new Array(genrateSize).fill(undefined).forEach((previous, _i) => {
+            const index = generateStart + _i
+            const address = index * Instruction.SIZE
+            if (address >= ENTRY_POINT) {
+                const opCode = this.memory.readOpcode(address)
+                this.instructionCache.cache[index] =
+                    Processor.generateCachedInstruction(opCode)
+            } else {
+                throw new Error(
+                    "Address below entry point, please use the start Parameter!"
+                )
+            }
+        })
     }
 
     updateCursor() {
@@ -105,7 +128,7 @@ export class Machine {
         const state: ExecutionResult = this.processor.executeNextInstruction(
             this.memory,
             this.periphery,
-            this.instructionCache
+            this
         )
 
         switch (state) {

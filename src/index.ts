@@ -1,5 +1,6 @@
 import * as display from "./display"
 import { runProgramm } from "./main"
+import * as Byte from "./builtins/Byte"
 import { DrawHandle } from "./terminal"
 
 function getDrawHandle(uninitialized = false): DrawHandle {
@@ -49,21 +50,7 @@ function onChooseFile(_event: Event) {
     let file = inputElement.files[0]
     let fr = new FileReader()
 
-    fr.onload = function onFileLoad(event: ProgressEvent<FileReader>) {
-        const contentElement: HTMLParagraphElement | null =
-            document.querySelector("p#contents")
-        if (contentElement === null) {
-            throw new Error("No paragraph element was found!")
-        }
-        contentElement.innerText =
-            event.target?.result
-                ?.toString()
-                .split("")
-                .map((a) => `0x${a.charCodeAt(0).toString(16).toUpperCase()}`)
-                .join(" ") ?? "no content"
-    }
-
-    fr.readAsText(file)
+    fr.readAsArrayBuffer(file)
 
     if (!file.name.endsWith(".backseat")) {
         //TODO visualize this
@@ -71,12 +58,24 @@ function onChooseFile(_event: Event) {
     }
 
     file.arrayBuffer().then((content) => {
+        const contentElement: HTMLParagraphElement | null =
+            document.querySelector("p#contents")
+        if (contentElement === null) {
+            throw new Error("No paragraph element was found!")
+        }
+
+        const array = new Uint8ClampedArray(content)
+
+        contentElement.innerText = [...array]
+            .map((a) => Byte.toHexString([a]))
+            .join(" ")
+
         // TODO make buttons and checkboxes to manipulate the args, run , emit, json and the option like exit on halt
         runProgramm(
             getDrawHandle(true),
             {
                 file,
-                content: new Uint8ClampedArray(content),
+                content: array,
             },
             { action: "Run", arguments: { path: file.name, exitOnHalt: true } }
         )

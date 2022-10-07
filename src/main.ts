@@ -301,7 +301,8 @@ export function run(
     let machine = new Machine(periphery, exitOnHalt)
 
     loadRom(machine, file)
-    machine.generateInstructionCache()
+    // JS can't handle it (very well) to pre-generate the whole memory, so it's done more conservative
+    machine.generateInstructionCache(ENTRY_POINT, file.content.length)
 
     // TODO load font here, instead of previously
     /*    #[cfg(feature = "graphics")]
@@ -319,10 +320,7 @@ export function run(
         clockFrequencyAverage: 0n,
     }
 
-
     while (!machine.isHalted) {
-        console.debug("Running next machine cycle")
-
         const currentTime = timer.getMsSinceEpoch()
         renderIfNeeded(currentTime, timeMeasurements, handle, machine)
 
@@ -360,8 +358,9 @@ export function writeBuffer(content: Uint8ClampedArray, machine: Machine) {
         throw new Error(`File size ${content.length} too big`)
     }
     if (content.length % Word.SIZE != 0) {
-        throw new Error(`Filesize must be divisible by ${Word.SIZE}`)
+        throw new Error(`File size must be divisible by ${Word.SIZE}`)
     }
+    //TODO test if this also effects the buffer!!
     machine.memory.data.set(content, ENTRY_POINT)
 }
 

@@ -9,7 +9,7 @@ import {
 import { u32, u64 } from "./builtins/types"
 import { Memory } from "./memory"
 import * as Instruction from "./builtins/Instruction"
-import { InstructionCache, CachedInstruction } from "./machine"
+import { InstructionCache, CachedInstruction, Machine } from "./machine"
 import { OpCode } from "./opcodes.generated"
 import * as Byte from "./builtins/Byte"
 import { KeyState } from "./keyboard"
@@ -17,6 +17,8 @@ import { Periphery } from "./periphery"
 import { assert } from "./builtins/utils"
 
 export const NUM_REGISTERS = 256
+
+export const INSTRUCTION_PRE_GENERATE_SIZE = 128
 export class Registers {
     numRegisters: number
     registers: Register[];
@@ -24,10 +26,11 @@ export class Registers {
     [key: number]: Word.Word
 
     constructor(numRegisters: number) {
-        assert(
-            Byte.isByte(numRegisters - 1),
+        assert<number, boolean>(
+            numRegisters - 1,
             true,
-            "Registers must be indexable by a Byte!"
+            `Registers index must be a Byte, but was ${numRegisters - 1}`,
+            (a, b) => Byte.isByte(a) === b
         )
         this.numRegisters = numRegisters
         this.registers = new Array(numRegisters)
@@ -52,7 +55,6 @@ export class Registers {
                 const index = Number(prop)
                 if (!isNaN(index)) {
                     if (index >= 0 && index < target.numRegisters) {
-                        console.log(index, value)
                         target.set(target.registers[index], value)
                         return true
                     } else {
@@ -87,13 +89,6 @@ export class Register {
     constructor(index: number, value = 0) {
         this.index = index
         this.value = value
-    }
-
-    static fromLetter(letter: string): Register {
-        // TODO: stub for the moment
-        return new Register(
-            letter.toUpperCase().charCodeAt(0) - "A".charCodeAt(0)
-        )
     }
 }
 
@@ -222,7 +217,12 @@ export class Processor {
     }
 
     setStackPointer(address: Address) {
-        assert(address > STACK_START && address - STACK_START < STACK_SIZE)
+        assert(
+            address > STACK_START,
+            address - STACK_START < STACK_SIZE,
+            `The Stack Pointer is out of the Stack range: start: ${STACK_START} size: ${STACK_SIZE} address:${address}`,
+            "&&"
+        )
         this.registers.set(this.STACK_POINTER, address)
     }
 
@@ -289,20 +289,25 @@ export class Processor {
     executeNextInstruction(
         memory: Memory,
         periphery: Periphery,
-        instructionCache: InstructionCache
+        machine: Machine
     ): ExecutionResult {
         const instructionAddress = this.getInstructionPointer()
         const cacheIndex = instructionAddress / Instruction.SIZE
-        const instruction: CachedInstruction | undefined =
-            instructionCache.cache[cacheIndex]
+        let instruction: CachedInstruction | undefined =
+            machine.instructionCache.cache[cacheIndex]
         if (instruction === undefined) {
-            //TODO then get the instruction in the memory, may cause unsafe code execution (alias dynamical code loaded into memory)
-            throw new Error("trying to read undefined instruction")
+            machine.generateInstructionCache(
+                instructionAddress,
+                INSTRUCTION_PRE_GENERATE_SIZE * Instruction.SIZE
+            )
+            instruction = machine.instructionCache.cache[cacheIndex]
+            if (instruction === undefined) {
+                throw new Error(
+                    "FATAL, this Instruction was generated right now"
+                )
+            }
         }
-        console.debug(
-            `Now executing instruction: `,
-            memory.readOpcode(instructionAddress)
-        )
+
         return instruction(this, memory, periphery)
     }
 
@@ -444,8 +449,6 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     // since the op states it, the value is converted to a Byte
-                    //const value = processor.registers[register]
-                    //assert(Byte.isByte(value), true, `in MoveByteAddressRegister: value ${value} is not a valid Byte`)
                     const value = Byte.toByte(processor.registers[register])
                     memory.writeByte(target_address, value)
                     handleCycleCountAndInstructionPointer(processor)
@@ -1712,7 +1715,7 @@ export class Processor {
                         console.debug(
                             `${Byte.toHexString(bytes)} : ${[...data]
                                 .map((byte): string => {
-                                    return `0x${Byte.toHexString([byte])}`
+                                    return Byte.toHexString([byte])
                                 })
                                 .join(" ")}`
                         )
