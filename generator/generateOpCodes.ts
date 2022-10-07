@@ -412,25 +412,40 @@ if (!parsed.isError) {
                 )
             }
 
-            // TODO check these sizes!
+            // for type deduction in ts, otherwise useless
+            opObject.types = {}
+
+            opObject.rest = []
 
             // this values map to their size!
             if (immediate) {
-                opObject.immediate = HalfWord.SIZE
+                opObject.rest.push("immediate")
             }
 
             if (target_address) {
-                opObject.target_address = HalfWord.SIZE
+                opObject.rest.push("target_address")
             }
 
             if (source_address) {
-                opObject.source_address = HalfWord.SIZE
+                opObject.rest.push("source_address")
             }
+
+            if(opObject.rest.length == 1){
+                opObject.types.rest = {[opObject.rest[0]]:"stub"}
+            }else{
+                opObject.types.rest = {}
+            }
+
+            opObject.registers = []
+
+            opObject.types.registers = {}
 
             //TODO figure out the right layout for this!!
             for (const { name, letter, type } of registers) {
-                opObject[name] = `Register.fromLetter("${letter}")`
+                opObject.registers.push(name);
+                opObject.types.registers.name = "stub"
             }
+
 
             const singleOpCode = [
                 "/**",
@@ -443,7 +458,7 @@ if (!parsed.isError) {
                             `${key} : ${
                                 typeof value === "bigint"
                                     ? `${value.toString()}n`
-                                    : value
+                                    : JSON.stringify(value)
                             }`
                     )
                     .join(",\n"),
@@ -458,21 +473,19 @@ if (!parsed.isError) {
         }
     }
 
-    generatedTypescript.push(
-        "export type OPCodeDefinitions = typeof opDefinitions"
-    )
+
 
     generatedTypescript.push("")
-/*     generatedTypescript.push(
+        generatedTypescript.push(
         `export type OpCodeNames  = ${opNames
             .map((type) => `"${type}"`)
             .join(" | ")} ;`
     )
 
-    generatedTypescript.push("") */
+    generatedTypescript.push("")
 
     generatedTypescript.push(
-        `export const opDefinitions = {${opObjects.join(",\n")}}`
+        `export const opDefinitions : OPCodeExtendedDefinitions = {${opObjects.join(",\n")}}`
     )
 
     generatedTypescript.push("")

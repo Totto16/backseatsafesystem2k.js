@@ -23,6 +23,7 @@ export class Registers {
     [key: number]: Word.Word
 
     constructor(numRegisters: number) {
+        assert(Byte.isByte(numRegisters-1), true, "Registers must be indexable by a Byte!")
         this.numRegisters = numRegisters
         this.registers = new Array(numRegisters)
             .fill(undefined)

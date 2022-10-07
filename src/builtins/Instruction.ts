@@ -1,5 +1,6 @@
 import * as Byte from "./Byte"
 import * as Word from "./Word"
+import * as HalfWord from "./HalfWord"
 import { bigintToBuf } from "bigint-conversion"
 import { Address } from "../address_constants"
 import { u64 } from "./types"
@@ -41,9 +42,22 @@ export function asWords(value: Instruction): [Word.Word, Word.Word] {
     ].map((a) => parseInt(a, 2)) as [Word.Word, Word.Word]
 }
 
+export function asHalfWords(value: Instruction): HalfWordBytes {
+    const [upper, lower] = asWords(value).map((word) => Word.asHalfWords(word))
+    const result = [...upper, ...lower] as HalfWordBytes
+    return result
+}
+
 export function isInstruction(number: Instruction) {
     return number >= 0n && number < 1n << BigInt(bits)
 }
+
+export type HalfWordBytes = [
+    HalfWord.HalfWord,
+    HalfWord.HalfWord,
+    HalfWord.HalfWord,
+    HalfWord.HalfWord
+]
 
 export type InstructionBytes = [
     Byte.Byte,
