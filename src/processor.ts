@@ -1,4 +1,5 @@
 import * as Word from "./builtins/Word"
+import * as HalfWord from "./builtins/HalfWord"
 import {
     STACK_START,
     ENTRY_POINT,
@@ -23,7 +24,11 @@ export class Registers {
     [key: number]: Word.Word
 
     constructor(numRegisters: number) {
-        assert(Byte.isByte(numRegisters-1), true, "Registers must be indexable by a Byte!")
+        assert(
+            Byte.isByte(numRegisters - 1),
+            true,
+            "Registers must be indexable by a Byte!"
+        )
         this.numRegisters = numRegisters
         this.registers = new Array(numRegisters)
             .fill(undefined)
@@ -327,7 +332,7 @@ export class Processor {
                     return ExecutionResult.Normal
                 }
             }
-            /*
+
             case "MoveRegisterAddress": {
                 const { register, source_address: address } = (
                     opCode as OpCode<"MoveRegisterAddress">
@@ -339,7 +344,7 @@ export class Processor {
                 ): ExecutionResult {
                     processor.registers[register] = memory.readData(address)
                     handleCycleCountAndInstructionPointer(processor)
-                    ExecutionResult.Normal
+                    return ExecutionResult.Normal
                 }
             }
 
@@ -419,7 +424,7 @@ export class Processor {
                 ): ExecutionResult {
                     processor.registers[register] = memory.readByte(
                         source_address
-                    ) as Word
+                    ) as Word.Word
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -434,10 +439,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    memory.writeByte(
-                        target_address,
-                        processor.registers[register] as u8
-                    )
+                    // since the op states it, the value is converted to a Byte
+                    //const value = processor.registers[register]
+                    //assert(Byte.isByte(value), true, `in MoveByteAddressRegister: value ${value} is not a valid Byte`)
+                    const value = Byte.toByte(processor.registers[register])
+                    memory.writeByte(target_address, value)
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -488,7 +494,7 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     processor.registers[register] =
-                        memory.readHalfword(source_address)
+                        memory.readHalfWord(source_address)
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -503,7 +509,7 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    memory.writeHalfword(
+                    memory.writeHalfWord(
                         target_address,
                         HalfWord.toHalfWord(processor.registers[register])
                     )
@@ -576,7 +582,7 @@ export class Processor {
                 ): ExecutionResult {
                     memory.writeByte(
                         processor.registers[pointer] + immediate,
-                        Byte.toByte(processor.registers[source] as Byte)
+                        Byte.toByte(processor.registers[source])
                     )
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
@@ -592,7 +598,7 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    memory.writeHalfword(
+                    memory.writeHalfWord(
                         processor.registers[pointer] + immediate,
                         HalfWord.toHalfWord(processor.registers[source])
                     )
@@ -602,7 +608,7 @@ export class Processor {
             }
 
             case "MoveTargetPointerOffset": {
-                const { register, immediate } = (
+                const { target, pointer, immediate } = (
                     opCode as OpCode<"MoveTargetPointerOffset">
                 ).parsedInstruction
                 return function (
@@ -645,7 +651,7 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    processor.registers[target] = memory.readHalfword(
+                    processor.registers[target] = memory.readHalfWord(
                         processor.registers[pointer] + immediate
                     )
                     handleCycleCountAndInstructionPointer(processor)
@@ -667,7 +673,7 @@ export class Processor {
                     return ExecutionResult.Halted
                 }
             }
-
+            /*
             case "AddTargetLhsRhs": {
                 const { target, lhs, rhs } = (
                     opCode as OpCode<"AddTargetLhsRhs">
@@ -983,6 +989,7 @@ export class Processor {
                     return ExecutionResult.Normal
                 }
             }
+            */
             case "PushRegister": {
                 const { register } = (opCode as OpCode<"PushRegister">)
                     .parsedInstruction
@@ -1091,7 +1098,7 @@ export class Processor {
             }
             case "JumpImmediateIfEqual": {
                 const { comparison, immediate: address } = (
-                    opCode as OpCode<"AndTargetLhsRhs">
+                    opCode as OpCode<"JumpImmediateIfEqual">
                 ).parsedInstruction
                 return function (
                     processor: Processor,
@@ -1564,8 +1571,8 @@ export class Processor {
                         periphery.keyboard.getKeyState(
                             processor.registers[keycode]
                         ) == KeyState.Down
-                    processor.registers[target] = result
-                    processor.setFlag("Zero", result === 0)
+                    processor.registers[target] = result ? 1 : 0
+                    processor.setFlag("Zero", result)
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -1640,7 +1647,7 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     processor.registers[target] =
-                        periphery.display.InvisibleFramebufferAddress()
+                        periphery.display.invisibleFramebufferAddress()
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
@@ -1670,11 +1677,11 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    processor.registers.registers.forEach((word, index) => {
-                        const bytes = Word.toBEBytes(word)
+                    processor.registers.registers.forEach((reg, index) => {
+                        const bytes = Word.toBEBytes(reg.value)
                         console.debug(
                             `Register r${index} = ${bytes
-                                .map((byte) => Word.toHexString([byte]))
+                                .map((byte) => Byte.toHexString([byte]))
                                 .join(" ")}`
                         )
                     })
@@ -1692,12 +1699,14 @@ export class Processor {
                         ` ---- Memory - SIZE ${Memory.SIZE} Bytes ---- `
                     )
                     const stepSize = 16
-                    for (const i = 0; i < Memory.SIZE; i += stepSize) {
+                    for (let i = 0; i < Memory.SIZE; i += stepSize) {
                         const data = memory.data.slice(i, i + stepSize)
                         const bytes = Instruction.toBEBytes(BigInt(i))
                         console.debug(
-                            `${Byte.toHexString(bytes)} : ${data
-                                .map((byte) => `0x${Byte.toHexString(byte)}`)
+                            `${Byte.toHexString(bytes)} : ${[...data]
+                                .map((byte): string => {
+                                    return `0x${Byte.toHexString([byte])}`
+                                })
                                 .join(" ")}`
                         )
                     }
@@ -1715,8 +1724,8 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     assert(
-                        processor.registers[actual] ===
-                            processor.registers[expected],
+                        processor.registers[actual],
+                        processor.registers[expected],
                         "opCode: AssertRegisterRegister"
                     )
                     handleCycleCountAndInstructionPointer(processor)
@@ -1733,7 +1742,8 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     assert(
-                        processor.registers[actual] === immediate,
+                        processor.registers[actual],
+                        immediate,
                         "opCode: AssertRegisterImmediate"
                     )
                     handleCycleCountAndInstructionPointer(processor)
@@ -1750,14 +1760,14 @@ export class Processor {
                     periphery: Periphery
                 ): ExecutionResult {
                     assert(
-                        memory.readData(processor.registers[pointer]) ===
-                            immediate,
+                        memory.readData(processor.registers[pointer]),
+                        immediate,
                         "opCode: AssertPointerImmediate"
                     )
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
-            }*/
+            }
             case "DebugBreak": {
                 return function (
                     processor: Processor,
@@ -1766,7 +1776,7 @@ export class Processor {
                 ): ExecutionResult {
                     throw new Error("panic")
                 }
-            } /*
+            }
             case "PrintRegister": {
                 const { register } = (opCode as OpCode<"PrintRegister">)
                     .parsedInstruction
@@ -1777,14 +1787,14 @@ export class Processor {
                 ): ExecutionResult {
                     const bytes = Word.toBEBytes(processor.registers[register])
                     console.debug(
-                        `Register r${index} = ${bytes
-                            .map((byte) => Word.toHexString([byte]))
+                        `Register r${register} = ${bytes
+                            .map((byte) => Byte.toHexString([byte]))
                             .join(" ")}`
                     )
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
-            }
+            } /*
             case "BoolCompareEquals": {
                 const { target, lhs, rhs } = (
                     opCode as OpCode<"BoolCompareEquals">
@@ -1888,6 +1898,7 @@ export class Processor {
                     return ExecutionResult.Normal
                 }
             }
+            */
             case "Checkpoint": {
                 const { immediate } = (opCode as OpCode<"Checkpoint">)
                     .parsedInstruction
@@ -1896,8 +1907,9 @@ export class Processor {
                     memory: Memory,
                     periphery: Periphery
                 ): ExecutionResult {
-                    if (immediate != processor.checkpoint_counter) {
+                    if (immediate != processor.checkpointCounter) {
                         assert(
+                            true,
                             false,
                             `checkpoint counter mismatch: expected ${processor.checkpointCounter}, got ${immediate}`
                         )
@@ -1907,7 +1919,7 @@ export class Processor {
                     return ExecutionResult.Normal
                 }
             }
- */
+
             default:
                 throw new Error(`unimplemented operation Code: ${opCode.name}!`)
         }

@@ -368,7 +368,19 @@ export type OPObject = {
     opCode: number
     cycles: bigint
     increment: boolean
-} & Record<string, any>
+} & {
+    registers: string[]
+    rest?: RegisterValueType
+    types: {
+        registers: Record<string, "stub">
+        rest: Record<string, "stub">
+    }
+}
+
+export type RegisterValueType =
+    | "immediate"
+    | "source_address"
+    | "target_address"
 
 if (!parsed.isError) {
     const ops = parsed.result
@@ -398,6 +410,11 @@ if (!parsed.isError) {
                 cycles: BigInt(cycles),
                 opCode,
                 increment,
+                registers: [],
+                types: {
+                    registers: {},
+                    rest:{}
+                },
             }
 
             const amount = [immediate, target_address, source_address].reduce(
@@ -412,40 +429,32 @@ if (!parsed.isError) {
                 )
             }
 
-            // for type deduction in ts, otherwise useless
-            opObject.types = {}
-
-            opObject.rest = []
-
             // this values map to their size!
             if (immediate) {
-                opObject.rest.push("immediate")
+                opObject.rest = "immediate"
             }
 
             if (target_address) {
-                opObject.rest.push("target_address")
+                opObject.rest = "target_address"
             }
 
             if (source_address) {
-                opObject.rest.push("source_address")
+                opObject.rest = "source_address"
             }
 
-            if(opObject.rest.length == 1){
-                opObject.types.rest = {[opObject.rest[0]]:"stub"}
-            }else{
+            if (opObject.rest !== undefined) {
+                opObject.types.rest = { [opObject.rest]: "stub" }
+            } else {
                 opObject.types.rest = {}
             }
 
-            opObject.registers = []
 
-            opObject.types.registers = {}
 
             //TODO figure out the right layout for this!!
             for (const { name, letter, type } of registers) {
-                opObject.registers.push(name);
-                opObject.types.registers.name = "stub"
+                opObject.registers.push(name)
+                opObject.types.registers[name] = "stub"
             }
-
 
             const singleOpCode = [
                 "/**",
@@ -473,10 +482,8 @@ if (!parsed.isError) {
         }
     }
 
-
-
     generatedTypescript.push("")
-        generatedTypescript.push(
+    generatedTypescript.push(
         `export type OpCodeNames  = ${opNames
             .map((type) => `"${type}"`)
             .join(" | ")} ;`
@@ -485,7 +492,7 @@ if (!parsed.isError) {
     generatedTypescript.push("")
 
     generatedTypescript.push(
-        `export const opDefinitions : OPCodeExtendedDefinitions = {${opObjects.join(",\n")}}`
+        `export const opDefinitions = {${opObjects.join(",\n")}}`
     )
 
     generatedTypescript.push("")

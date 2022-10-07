@@ -16,7 +16,7 @@ export interface BasicDisplay {
     isFirstFramebufferVisible: () => boolean
 
     render: (memory: Memory, handle: terminal.DrawHandle) => void
-    invisible_framebuffer_address: () => Address
+    invisibleFramebufferAddress: () => Address
 }
 
 export class MockDisplay implements BasicDisplay {
@@ -26,7 +26,7 @@ export class MockDisplay implements BasicDisplay {
         this.firstFramebufferVisible = true
     }
 
-    invisible_framebuffer_address(): Address {
+    invisibleFramebufferAddress(): Address {
         return this.isFirstFramebufferVisible()
             ? SECOND_FRAMEBUFFER_START
             : FIRST_FRAMEBUFFER_START

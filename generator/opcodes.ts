@@ -1,9 +1,7 @@
 import * as Instruction from "./builtins/Instruction"
-import { Register } from "./processor"
 import * as Byte from "./builtins/Byte"
 import * as Word from "./builtins/Word"
 import * as HalfWord from "./builtins/HalfWord"
-import { Address } from "./address_constants"
 import { u64, u8, u32 } from "./builtins/types"
 import { assert } from "../src/builtins/utils"
 
@@ -14,16 +12,29 @@ import { assert } from "../src/builtins/utils"
 // all possible registers, each u8
 // immediate , source_address or target_address - u32
 
-// assert that not more then 64 bytes are possible
+
+
+export type ParsedInstruction<T extends OpCodeNames> = OpCodeBasics & ParsedRegister<T> & ParsedRest<T>
+
+
+export type ParsedRegister<T extends OpCodeNames> = {
+    [key in keyof typeof opDefinitions[T]["types"]["registers"]]: u8
+} 
+
+export type ParsedRest<T extends OpCodeNames> = {
+    [key in keyof typeof opDefinitions[T]["types"]["rest"]]: u32
+}
+
+export interface ParserResult<T extends OpCodeNames> {
+    name: T
+    parsedInstruction: ParsedInstruction<T>
+}
+
 
 export class OpCode<T extends OpCodeNames = OpCodeNames> {
     private instruction: Instruction.Instruction
     name: T
-    parsedInstruction: OpCodeBasics & {
-        [key in keyof OPCodeExtendedDefinitions[T]["types"]["registers"]]: u8
-    } & {
-        [key in keyof OPCodeExtendedDefinitions[T]["types"]["rest"]]: u32
-    }
+    parsedInstruction:ParsedInstruction<T>
 
     constructor(instruction: Instruction.Instruction) {
         const {name, parsedInstruction} = this.parseInstruction(instruction)
@@ -54,23 +65,21 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         return value
     }
 
-    parseInstruction(instruction : Instruction.Instruction)  {
+    parseInstruction(instruction : Instruction.Instruction): ParserResult<T>   {
         const name = OpCode.getNameByInstruction<T>(instruction)
 
         const {
             opCode,
             cycles,
             registers,
-            rest: restArray,
+            rest,
             increment,
-        } = opDefinitions[name]
-
-        const rest = restArray.length === 1 ? restArray[0] : undefined
+        } = opDefinitions[name] as (typeof opDefinitions[T]) & {rest?:string}
 
         const actualBits =
             HalfWord.bits +
             registers.length * Byte.bits +
-            (rest !== undefined ? Word.bits : 0)
+            (rest === undefined ? 0 : Word.bits)
         assert(
             actualBits <= Instruction.bits,
             true,
@@ -79,29 +88,26 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
 
         const [, , ...bytes] = Instruction.toBEBytes(instruction)
 
-        const parsedRegisters = registers.reduce((acc, name, index) => {
+        const parsedRegisters : ParsedRegister<T> = (registers as (ParsedRegister<T>[keyof ParsedRegister<T>])[]).reduce<ParsedRegister<T>>(
+            (acc, name, index) => {
             return { ...acc, [name]: bytes[index] }
-        }, {})
+        }, <ParsedRegister<T>>{})
 
         const [, word] = Instruction.asWords(instruction)
-        const parsedRest =
-            rest === undefined
-                ? {}
+        const parsedRest : ParsedRest<T>  =
+            (rest === undefined
+                ? {} 
                 : {
                     [rest]: word,
-                }
+                })as ParsedRest<T>
 
         
-        const parsedInstruction = {
+        const parsedInstruction  : ParsedInstruction<T>  = {
             opCode,
             cycles,
             increment,
             ...parsedRest,
             ...parsedRegisters,
-        } as OpCodeBasics & {
-            [key in keyof OPCodeExtendedDefinitions[T]["types"]["registers"]]: u8
-        } & {
-            [key in keyof OPCodeExtendedDefinitions[T]["types"]["rest"]]: u32
         }
 
         return {name, parsedInstruction}
