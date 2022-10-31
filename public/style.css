@@ -1,0 +1,54 @@
+.inst-container {
+    grid-template-columns: 10% 90%;
+    display: grid;
+    justify-content: center;
+    justify-items: stretch;
+    align-content: center;
+    align-items: center;
+}
+
+
+.inst-addresses{
+    grid-template-columns: 100%;
+    display: grid;
+    justify-content: center;
+    justify-items: stretch;
+    align-content: center;
+    align-items: center;
+
+    padding-right: 20px;
+}
+
+
+.inst-code{
+    grid-template-columns: repeat(4, calc(90% / 4));
+    display: grid;
+    justify-content: center;
+    justify-items: stretch;
+    align-content: center;
+    align-items: center;
+}
+
+
+.outer-inst{
+    background-color: grey;
+    padding: 10px;
+    margin: 10px;
+}
+
+.address-lines {
+    background-color: rgb(85, 85, 85);
+    padding: 10px;
+    margin: 10px;
+    color: white;
+}
+
+
+.outer-inst:hover {
+    background-color: green;
+    cursor: pointer;
+}
+
+#contents{
+    background-color: rgb(48, 46, 46);
+}

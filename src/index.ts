@@ -4,6 +4,7 @@ import * as Byte from "./builtins/Byte"
 import * as Instruction from "./builtins/Instruction"
 import { DrawHandle } from "./terminal"
 import { OpCode } from "./opcodes.generated"
+import { ENTRY_POINT } from "./address_constants"
 
 function getDrawHandle(uninitialized = false): DrawHandle {
     return [0, 1].map((_, index) => {
@@ -34,7 +35,11 @@ function start() {
 }
 
 function generateUI(array: Uint8ClampedArray, contentElement: HTMLElement) {
-    console.log("generating UI")
+    
+    const hoverOverElement = (element: HTMLElement, opCode : OpCode)=>{
+        console.log(opCode)
+    }
+
     const byteArray = [...array]
         .map((byte) => Byte.toHexString([byte], true, true, false))
         .join("")
@@ -46,15 +51,30 @@ function generateUI(array: Uint8ClampedArray, contentElement: HTMLElement) {
             return [opcode, Instruction.toBEBytes(inst)]
         })
 
-    contentElement.innerHTML = `<div class="inst-container" display="grid>${readableByteCode.map(
-        ([opCode, bytes]) => {
+    const addresses = new Array(Math.ceil(readableByteCode.length / 4))
+        .fill(undefined)
+        .map((_, i) => {
+            return Instruction.toHexString(
+                BigInt(ENTRY_POINT + i * Instruction.SIZE), false
+            )
+        })
+
+        
+    contentElement.innerHTML = `<div class="inst-container"><div class="inst-addresses">${addresses.map(
+        (addr) => {
+            return `<div class="address-lines">${addr}</div>`
+        }
+    ).join("")}</div><div class="inst-code">${readableByteCode
+        .map(([opCode, bytes]) => {
             const code = bytes.map((byte) =>
                 Byte.toHexString([byte], true, true, false)
             )
 
-            return `<div class="outer-inst" display="flex" onclick="console.log('${opCode.name}')">${code.join(" ")}</div>`
-        }
-    ).join("")}</div>`
+            return `<div class="outer-inst" onclick="console.log('${
+                opCode.name
+            }')">${code.join(" ")}</div>`
+        })
+        .join("")}</div>`
 
     console.log("generated UI successfully!")
 }
