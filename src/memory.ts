@@ -71,7 +71,7 @@ export class Memory {
     }
 
     writeData(address: Address, data: Word.Word) {
-        assert(address % Instruction.SIZE, 0)
+        assert(address % Word.SIZE, 0)
         assert<Word.Word, boolean>(
             data,
             true,
@@ -87,7 +87,7 @@ export class Memory {
     }
 
     writeHalfWord(address: Address, data: HalfWord.HalfWord) {
-        assert(address % Instruction.SIZE, 0)
+        assert(address % HalfWord.SIZE, 0)
         assert<HalfWord.HalfWord, boolean>(
             data,
             true,
@@ -95,16 +95,16 @@ export class Memory {
             (a, b) => HalfWord.isHalfWord(a) === b,
             IMPLICIT_CONVERSION
         )
-        
+
         if (IMPLICIT_CONVERSION) {
             data = HalfWord.toHalfWord(data)
         }
-        
+
         HalfWord.saveAsBEBytes(this._data, address, data)
     }
 
     writeByte(address: Address, data: Byte.Byte) {
-        assert(address % Instruction.SIZE, 0)
+        assert(address % Byte.SIZE, 0)
         assert<Byte.Byte, boolean>(
             data,
             true,

@@ -218,7 +218,7 @@ export class Processor {
 
     setStackPointer(address: Address) {
         assert(
-            address > STACK_START,
+            address >= STACK_START,
             address - STACK_START < STACK_SIZE,
             `The Stack Pointer is out of the Stack range: start: ${STACK_START} size: ${STACK_SIZE} address:${address}`,
             "&&"
@@ -979,6 +979,7 @@ export class Processor {
                         true
                     )
                     processor.registers[target] = result
+                    handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
                 }
             }
@@ -1690,7 +1691,6 @@ export class Processor {
                 ): ExecutionResult {
                     processor.registers.registers.forEach((reg, index) => {
                         const bytes = Word.toBEBytes(reg.value)
-                        
                     })
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal

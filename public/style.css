@@ -5,6 +5,7 @@
     --color-inst-nothing: lightgray;
 
     --tooltip-width: 120px;
+    --padding-between-lines: 5px;
 }
 
 .inst-container {
@@ -51,7 +52,7 @@
 
 .address-lines {
     background-color: rgb(85, 85, 85);
-    padding: 10px;
+    padding: var(--padding-between-lines);
     margin: 10px;
     text-align: center;
     color: white;
@@ -88,7 +89,7 @@
 
 .inner-inst {
     position: relative;
-    padding: 5px;
+    padding: var(--padding-between-lines);
 }
 
 .inner-inst .tooltip {
