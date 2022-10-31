@@ -957,6 +957,14 @@ export class Processor {
                         processor,
                         true
                     )
+                    console.log("AddTargetSourceImmediate", {
+                        source,
+                        target,
+                        sc: processor.registers[source],
+                        immediate,
+                        result,
+                        ins: Instruction.toHexString(opCode.asInstruction()),
+                    })
                     processor.registers[target] = result
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal

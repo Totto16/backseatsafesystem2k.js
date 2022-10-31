@@ -82,6 +82,6 @@ export function toBEBytes(value: Instruction): InstructionBytes {
     return Array.from(array) as InstructionBytes
 }
 
-export function toHexString(value: Instruction): string {
-    return Byte.toHexString(toBEBytes(value), true)
+export function toHexString(value: Instruction, includeLeadingNullBytes = true): string {
+    return Byte.toHexString(toBEBytes(value).reverse(), includeLeadingNullBytes, false)
 }

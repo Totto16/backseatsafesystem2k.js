@@ -3,10 +3,10 @@ import { Address, ENTRY_POINT } from "./address_constants"
 import { Cursor } from "./cursor"
 import { Display } from "./display"
 import { Keyboard } from "./keyboard"
-import { Machine } from "./machine"
+import { CachedInstruction, Machine } from "./machine"
 import { Memory } from "./memory"
 import { Periphery } from "./periphery"
-import { Register } from "./processor"
+import { Processor, Register, Registers } from "./processor"
 import { DrawHandle } from "./terminal"
 import { Timer } from "./timer"
 import * as Word from "./builtins/Word"
@@ -61,12 +61,17 @@ export interface Args<P extends PossibleAction = PossibleAction> {
     arguments: Action[P]
 }
 
-export function runProgramm(handle: DrawHandle, file: PseudoFile, args: Args) {
+export async function runProgramm(
+    handle: DrawHandle,
+    file: PseudoFile,
+    args: Args,
+    manuallyStep: undefined | HTMLButtonElement
+): Promise<void> {
     switch (args.action) {
         case "Run":
             {
                 const { path, exitOnHalt } = args.arguments as Action["Run"]
-                run(file, handle, exitOnHalt)
+                return await run(file, handle, exitOnHalt, manuallyStep)
             }
             break
         case "Emit":
@@ -272,11 +277,12 @@ fn emit(output_filename: Option<&Path>) -> Result<(), Box<dyn Error>> {
 }
  */
 
-export function run(
+export async function run(
     file: PseudoFile,
     handle: DrawHandle,
-    exitOnHalt: boolean
-): void {
+    exitOnHalt: boolean,
+    manuallyStep: undefined | HTMLButtonElement
+): Promise<void> {
     // TODO init canvas here instead of earlier
     /*     let (raylib_handle, raylib_thread) = raylib::init()
         .size(SCREEN_SIZE.width, SCREEN_SIZE.height)
@@ -324,27 +330,49 @@ export function run(
         const currentTime = timer.getMsSinceEpoch()
         renderIfNeeded(currentTime, timeMeasurements, handle, machine)
 
-        const [averageFrequency, notRender] = [
-            timeMeasurements.clockFrequencyAverage,
-            currentTime > timeMeasurements.nextRenderTime,
-        ]
+        if (!manuallyStep) {
+            const [averageFrequency, notRender] = [
+                timeMeasurements.clockFrequencyAverage,
+                currentTime > timeMeasurements.nextRenderTime,
+            ]
 
-        let numCycles: u64
+            let numCycles: u64
 
-        if (notRender) {
-            timeMeasurements.nextRenderTime = currentTime
-            numCycles = 0n
-        } else if (averageFrequency === 0n) {
-            numCycles = 10_000n
+            if (notRender) {
+                timeMeasurements.nextRenderTime = currentTime
+                numCycles = 0n
+            } else if (averageFrequency === 0n) {
+                numCycles = 10_000n
+            } else {
+                const remainingMsUntilNextRender =
+                    timeMeasurements.nextRenderTime - currentTime
+                const cycleDuration =
+                    1000n / timeMeasurements.clockFrequencyAverage
+                numCycles =
+                    remainingMsUntilNextRender / BigInt(cycleDuration) - 10n
+            }
+
+            for (let i = 0; i < numCycles; ++i) {
+                executeNextInstruction(machine)
+            }
         } else {
-            const remainingMsUntilNextRender =
-                timeMeasurements.nextRenderTime - currentTime
-            const cycleDuration = 1000n / timeMeasurements.clockFrequencyAverage
-            numCycles = remainingMsUntilNextRender / BigInt(cycleDuration) - 10n
-        }
+            await new Promise((resolve) => {
+                manuallyStep.onclick = () => {
+                    const instructionAddress =
+                        machine.processor.getInstructionPointer()
+                    const opCode = machine.memory.readOpcode(instructionAddress)
 
-        for (let i = 0; i < numCycles; ++i) {
-            executeNextInstruction(machine)
+                    console.log(
+                        `Now executing opCode:`,
+                        opCode,
+                        machine.processor.registers.get(
+                            machine.processor.STACK_POINTER
+                        ),
+                        Instruction.toHexString(opCode.asInstruction())
+                    )
+                    executeNextInstruction(machine)
+                }
+            })
         }
     }
 }

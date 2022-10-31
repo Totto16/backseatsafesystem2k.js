@@ -43,7 +43,7 @@ export class Machine {
 
     // Attention, Size and start is in bytes, so multiply by Instruction.SIZE if necessary
     generateInstructionCache(start?: number, size?: number) {
-        const genrateSize =
+        const generateSize =
             size !== undefined
                 ? size / Instruction.SIZE
                 : Machine.MAX_NUM_INSTRUCTIONS
@@ -64,7 +64,7 @@ export class Machine {
             )
         }
 
-        new Array(genrateSize).fill(undefined).forEach((previous, _i) => {
+        new Array(generateSize).fill(undefined).forEach((previous, _i) => {
             const index = generateStart + _i
             const address = index * Instruction.SIZE
             if (address >= ENTRY_POINT) {
@@ -77,6 +77,7 @@ export class Machine {
                 )
             }
         })
+       // console.log(`Finished genrating instructions`);
     }
 
     updateCursor() {

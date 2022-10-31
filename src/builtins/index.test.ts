@@ -265,3 +265,48 @@ test("Instruction conversion works", () => {
 
     expect(result).toBe(BESum)
 })
+
+
+
+test("Instruction toHex works as expected", () => {
+    const array: Uint8ClampedArray = new Uint8ClampedArray(
+        new ArrayBuffer(Instruction.SIZE)
+    )
+    const values = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]
+
+    expect(values.length).toStrictEqual(Instruction.SIZE)
+
+    for (let i = 0; i < values.length; ++i) {
+        array[i] = values[i]
+
+        expect(values[i]).toBeLessThanOrEqual(255)
+        expect(values[i]).toBeGreaterThanOrEqual(0)
+    }
+    const instruction = Instruction.fromBEBytes(array)
+
+    expect(Instruction.toHexString(instruction)).toBe("0x0000000000000001")
+    expect(Instruction.toHexString(instruction, false)).toBe("0x1")
+})
+
+
+test("Byte toHex works as expected", () => {
+    const value1 = [0x10, 0x01]
+    const value2 = [0x01, 0x00,0x00]
+    const value3 = [0x00, 0x01, 0x00,0x00]
+
+    expect(Byte.toHexString(value1, false, false)).toBe("0x1001")
+    expect(Byte.toHexString(value1, false, true)).toBe("0x1001")
+    expect(Byte.toHexString(value1, true, true)).toBe("0x1001")
+    expect(Byte.toHexString(value1, true, false)).toBe("0x1001")
+    
+    expect(Byte.toHexString(value2, false, false)).toBe("0x10000")
+    expect(Byte.toHexString(value2, false, true)).toBe("0x010000")
+    expect(Byte.toHexString(value2, true, true)).toBe("0x010000")
+    expect(Byte.toHexString(value2, true, false)).toBe("0x010000")
+
+    expect(Byte.toHexString(value3, false, false)).toBe("0x10000")
+    expect(Byte.toHexString(value3, false, true)).toBe("0x010000")
+    expect(Byte.toHexString(value3, true, true)).toBe("0x00010000")
+    expect(Byte.toHexString(value3, true, false)).toBe("0x00010000")
+
+})

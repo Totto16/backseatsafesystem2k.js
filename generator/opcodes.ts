@@ -39,7 +39,6 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         this.instruction = instruction
         this.parsedInstruction = parsedInstruction
         this.name = name
-        console.debug("Parsed Instruction: ", this)
     }
 
     static getNameByInstruction<T extends OpCodeNames = OpCodeNames>(
@@ -65,7 +64,7 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
     }
 
     parseInstruction(instruction: Instruction.Instruction): ParserResult<T> {
-        const name = OpCode.getNameByInstruction<T>(instruction)
+        const name : T = OpCode.getNameByInstruction<T>(instruction)
 
         const { opCode, cycles, registers, rest, increment } = opDefinitions[
             name
@@ -113,8 +112,8 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         return this.instruction
     }
 
-    static fromInstruction(instruction: Instruction.Instruction): OpCode {
-        return new OpCode(instruction)
+    static fromInstruction<T extends OpCodeNames = OpCodeNames>(instruction: Instruction.Instruction): OpCode<T> {
+        return new OpCode<T>(instruction)
     }
 
     getNumCycles(): u64 {

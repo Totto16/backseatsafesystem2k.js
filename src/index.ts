@@ -57,29 +57,37 @@ function onChooseFile(_event: Event) {
         throw new Error("not a backseat file")
     }
 
-    file.arrayBuffer().then((content) => {
-        const contentElement: HTMLParagraphElement | null =
-            document.querySelector("p#contents")
-        if (contentElement === null) {
-            throw new Error("No paragraph element was found!")
-        }
+    file.arrayBuffer()
+        .then((content) => {
+            const contentElement: HTMLParagraphElement | null =
+                document.querySelector("p#contents")
+            if (contentElement === null) {
+                throw new Error("No paragraph element was found!")
+            }
 
-        const array = new Uint8ClampedArray(content)
+            const array = new Uint8ClampedArray(content)
 
-        contentElement.innerText = [...array]
-            .map((a) => Byte.toHexString([a]))
-            .join(" ")
+            contentElement.innerText = [...array]
+                .map((a) => Byte.toHexString([a]))
+                .join(" ")
 
-        // TODO make buttons and checkboxes to manipulate the args, run , emit, json and the option like exit on halt
-        runProgramm(
-            getDrawHandle(true),
-            {
-                file,
-                content: array,
-            },
-            { action: "Run", arguments: { path: file.name, exitOnHalt: true } }
-        )
-    })
+            // TODO make buttons and checkboxes to manipulate the args, run , emit, json and the option like exit on halt
+            runProgramm(
+                getDrawHandle(true),
+                {
+                    file,
+                    content: array,
+                },
+                {
+                    action: "Run",
+                    arguments: { path: file.name, exitOnHalt: true },
+                },
+                document.querySelector<HTMLButtonElement>(
+                    "button#nextButton"
+                ) ?? undefined
+            )
+        })
+        .then(() => console.log("finished running the program"))
 }
 
 start()

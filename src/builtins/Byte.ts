@@ -46,16 +46,32 @@ export function isByte(number: Word.Word) {
 
 export function toHexString(
     values: Byte[],
-    includeLeadingNullBytes = false
+    includeLeadingNullBytes = false,
+    singleBytePad = includeLeadingNullBytes
 ): string {
-    const bytes = includeLeadingNullBytes
-        ? values
-        : values.filter((a) => a !== 0)
+    let bytes = values
+    if (!includeLeadingNullBytes) {
+        const highestByteIndex = values.map((a) => a !== 0).indexOf(true)
+        bytes = values.filter((a, index) => {
+            return a !== 0 || index > highestByteIndex
+        })
+    }
+
     if (bytes.length === 0) {
         bytes.push(0)
     }
     return `0x${bytes
-        .map((byte) => byte.toString(16).toUpperCase().padStart(2, "0"))
+        .map((byte, index) =>
+            byte
+                .toString(16)
+                .toUpperCase()
+                .padStart(
+                    singleBytePad || index != 0 || includeLeadingNullBytes
+                        ? 2
+                        : 0,
+                    "0"
+                )
+        )
         .join("")}`
 }
 
