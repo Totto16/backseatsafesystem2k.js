@@ -7,8 +7,7 @@
     align-items: center;
 }
 
-
-.inst-addresses{
+.inst-addresses {
     grid-template-columns: 100%;
     display: grid;
     justify-content: center;
@@ -19,8 +18,7 @@
     padding-right: 20px;
 }
 
-
-.inst-code{
+.inst-code {
     grid-template-columns: repeat(4, calc(90% / 4));
     display: grid;
     justify-content: center;
@@ -29,11 +27,12 @@
     align-items: center;
 }
 
-
-.outer-inst{
+.outer-inst {
     background-color: grey;
     padding: 10px;
     margin: 10px;
+    display: flex;
+    gap: 10px;
 }
 
 .address-lines {
@@ -43,12 +42,31 @@
     color: white;
 }
 
-
 .outer-inst:hover {
     background-color: green;
     cursor: pointer;
 }
 
-#contents{
+#contents {
     background-color: rgb(48, 46, 46);
+}
+
+.hover-inst {
+    position: relative;
+    bottom: 0px;
+    background: #0064ff;
+}
+
+.inst-name {
+    color: grey;
+    background-color: black;
+}
+
+.inst-attr {
+    color: white;
+    background-color: blue;
+}
+
+.rom-list > li {
+    cursor: pointer;
 }
