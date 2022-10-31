@@ -45,6 +45,10 @@
     justify-self: normal;
 }
 
+.outer-inst.active {
+    background-color: rgb(206, 202, 202);
+}
+
 .address-lines {
     background-color: rgb(85, 85, 85);
     padding: 10px;
@@ -120,4 +124,13 @@
 
 .inner-inst:hover[type="nothing"] {
     background-color: var(--color-inst-nothing);
+}
+
+#nextButton[enabled="false"] {
+    background-color: lightgray;
+}
+
+#nextButton[enabled="true"] {
+    background-color: blue;
+    cursor: pointer;
 }

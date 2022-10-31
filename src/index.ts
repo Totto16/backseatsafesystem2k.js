@@ -224,11 +224,33 @@ async function loadProgramm(content: ArrayBuffer, name: string) {
         'input#enable-stepping[type="checkbox"]'
     )
 
-    const manuallyStep =
-        enableStepping && enableStepping.checked
-            ? document.querySelector<HTMLButtonElement>("button#nextButton") ??
-              undefined
-            : undefined
+    const stepButton =
+        document.querySelector<HTMLButtonElement>("button#nextButton")
+    if (stepButton === null) {
+        throw new Error("No stepButton was found!")
+    }
+
+    const runWithSteps = (enableStepping && enableStepping.checked) ?? false
+
+    let stepper: RunStepper = new RunStepper()
+
+    if (runWithSteps) {
+        stepButton.setAttribute("enabled", "true")
+        stepButton.onclick = () => {
+            const newIndex = stepper.onclickHandler?.(
+                stepper.elements,
+                stepper.getActiveElement()
+            )
+            stepper.update(newIndex)
+        }
+
+        stepper.update()
+    }
+
+    const options: RunOptions = {
+        runWithSteps,
+        stepper,
+    }
 
     await runProgramm(
         getDrawHandle(true),
@@ -240,7 +262,7 @@ async function loadProgramm(content: ArrayBuffer, name: string) {
             action: "Run",
             arguments: { path: name, exitOnHalt: true },
         },
-        manuallyStep
+        options
     )
 
     console.log("finished running the program")
@@ -252,3 +274,53 @@ export interface PseudoFile {
     name: string
     content: Uint8ClampedArray
 }
+
+export interface RunOptions {
+    runWithSteps: boolean
+    stepper: RunStepper
+}
+
+export class RunStepper {
+    onclickHandler?: RunStepFunction
+    index: number
+    elements: HTMLDivElement[]
+
+    constructor(index?: number) {
+        this.index = index ?? ENTRY_POINT
+        this.elements = Array.from(document.querySelectorAll("div.outer-inst"))
+    }
+
+    private getArrayIndex(): number {
+        return (this.index - ENTRY_POINT) / Instruction.SIZE
+    }
+
+    getActiveElement(): HTMLDivElement | null {
+        const arrayIndex = this.getArrayIndex()
+        const activeElement =
+            arrayIndex >= 0 && arrayIndex < this.elements.length
+                ? this.elements[arrayIndex]
+                : null
+
+        return activeElement
+    }
+
+    update(newIndex?: number): void {
+        const activeElement = this.getActiveElement()
+        if (!newIndex) {
+            if (activeElement) {
+                activeElement.classList.add("active")
+            }
+        } else {
+            if (activeElement) {
+                activeElement.classList.remove("active")
+            }
+            this.index = newIndex
+            this.update()
+        }
+    }
+}
+
+export type RunStepFunction = (
+    elements: HTMLDivElement[],
+    activeElement: HTMLDivElement | null
+) => number

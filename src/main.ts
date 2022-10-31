@@ -1,4 +1,4 @@
-import { PseudoFile } from "."
+import { PseudoFile, RunOptions } from "."
 import { Address, ENTRY_POINT } from "./address_constants"
 import { Cursor } from "./cursor"
 import { Display } from "./display"
@@ -66,13 +66,13 @@ export async function runProgramm(
     handle: DrawHandle,
     file: PseudoFile,
     args: Args,
-    manuallyStep: undefined | HTMLButtonElement
+    options: RunOptions
 ): Promise<void> {
     switch (args.action) {
         case "Run":
             {
                 const { path, exitOnHalt } = args.arguments as Action["Run"]
-                return run(file, handle, exitOnHalt, manuallyStep)
+                return run(file, handle, exitOnHalt, options)
             }
             break
         case "Emit":
@@ -282,7 +282,7 @@ export async function run(
     file: PseudoFile,
     handle: DrawHandle,
     exitOnHalt: boolean,
-    manuallyStep: undefined | HTMLButtonElement
+    options: RunOptions
 ): Promise<void> {
     // TODO init canvas here instead of earlier
     /*     let (raylib_handle, raylib_thread) = raylib::init()
@@ -331,7 +331,7 @@ export async function run(
         const currentTime = timer.getMsSinceEpoch()
         renderIfNeeded(currentTime, timeMeasurements, handle, machine)
 
-        if (!manuallyStep) {
+        if (!options.runWithSteps) {
             const [averageFrequency, notRender] = [
                 timeMeasurements.clockFrequencyAverage,
                 currentTime > timeMeasurements.nextRenderTime,
@@ -371,7 +371,10 @@ export async function run(
             }
         } else {
             await new Promise((resolve) => {
-                manuallyStep.onclick = () => {
+                options.stepper.onclickHandler = (
+                    elements: HTMLDivElement[],
+                    activeElement: HTMLDivElement | null
+                ): number => {
                     const instructionAddress =
                         machine.processor.getInstructionPointer()
                     const opCode = machine.memory.readOpcode(instructionAddress)
@@ -385,6 +388,7 @@ export async function run(
                         Instruction.toHexString(opCode.asInstruction())
                     )
                     executeNextInstruction(machine)
+                    return machine.processor.getInstructionPointer()
                 }
             })
         }
