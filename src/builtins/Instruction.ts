@@ -1,7 +1,6 @@
 import * as Byte from "./Byte"
 import * as Word from "./Word"
 import * as HalfWord from "./HalfWord"
-import { bigintToBuf } from "bigint-conversion"
 import { Address } from "../address_constants"
 import { u64 } from "./types"
 
@@ -23,14 +22,21 @@ export function fromBEBytes(array: Uint8ClampedArray): Instruction {
     )
 }
 
+export function chunkString(str: string, length: number): string[] {
+    const match = str.match(new RegExp(".{1," + length + "}", "g"))
+    if (match === null) {
+        throw new Error(`couldn't chunk string, this shouldn't occur!`)
+    }
+
+    return [...(match as RegExpMatchArray)]
+}
+
 export function saveAsBEBytes(
     array: Uint8ClampedArray,
     address: Address,
     value: Instruction
 ): void {
-    const newArray: Uint8ClampedArray = new Uint8ClampedArray(
-        bigintToBuf(value, true)
-    )
+    const newArray: number[] = toBEBytes(value)
 
     for (let i = 0; i < SIZE; ++i) {
         if (newArray[i] > 255 || newArray[i] < 0) {
@@ -77,11 +83,50 @@ export type InstructionBytes = [
 ]
 
 export function toBEBytes(value: Instruction): InstructionBytes {
-    const array = new Uint8ClampedArray(new ArrayBuffer(SIZE))
-    saveAsBEBytes(array, 0, value)
-    return Array.from(array) as InstructionBytes
+    const string = value.toString(16).padStart(SIZE * 2, "0")
+
+    const result = chunkString(string, 2).map((num) => {
+        const parsedNum = parseInt(num, 16)
+        if (Number.isNaN(parsedNum) || !Number.isFinite(parsedNum)) {
+            throw new Error(
+                "UNREACHABLE, generated this string by using a number toString(16)"
+            )
+        }
+        return parsedNum
+    })
+    return result as InstructionBytes
 }
 
-export function toHexString(value: Instruction, includeLeadingNullBytes = true): string {
-    return Byte.toHexString(toBEBytes(value).reverse(), includeLeadingNullBytes, false)
+export function toHexString(
+    value: Instruction,
+    includeLeadingNullBytes = true
+): string {
+    return Byte.toHexString(toBEBytes(value), includeLeadingNullBytes, false)
+}
+
+export function fromHexString(value: string): u64 {
+    if (value.substring(0, 2) === "0x") {
+        return fromHexString(value.substring(2))
+    }
+    if (value.length != SIZE * 2) {
+        throw new Error("Invalid Instruction String")
+    }
+    const array: string[] = chunkString(value, 2)
+    const values: number[] = array.map((num) => {
+        const parsedNum = parseInt(num, 16)
+        return parsedNum
+    })
+    return fromArray(values)
+}
+
+export function fromArray(values: number[]): u64 {
+    const array: Uint8ClampedArray = new Uint8ClampedArray(
+        new ArrayBuffer(SIZE)
+    )
+
+    for (let i = 0; i < values.length; ++i) {
+        array[i] = values[i]
+    }
+    const instruction = fromBEBytes(array)
+    return instruction
 }

@@ -957,14 +957,7 @@ export class Processor {
                         processor,
                         true
                     )
-                    console.log("AddTargetSourceImmediate", {
-                        source,
-                        target,
-                        sc: processor.registers[source],
-                        immediate,
-                        result,
-                        ins: Instruction.toHexString(opCode.asInstruction()),
-                    })
+
                     processor.registers[target] = result
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal
@@ -1697,11 +1690,7 @@ export class Processor {
                 ): ExecutionResult {
                     processor.registers.registers.forEach((reg, index) => {
                         const bytes = Word.toBEBytes(reg.value)
-                        console.debug(
-                            `Register r${index} = ${bytes
-                                .map((byte) => Byte.toHexString([byte]))
-                                .join(" ")}`
-                        )
+                        
                     })
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Normal

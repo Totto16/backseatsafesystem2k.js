@@ -77,7 +77,6 @@ export class Machine {
                 )
             }
         })
-       // console.log(`Finished genrating instructions`);
     }
 
     updateCursor() {

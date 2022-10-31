@@ -14,6 +14,7 @@ import * as Instruction from "./builtins/Instruction"
 import { u64 } from "./builtins/types"
 import { OpCode } from "./opcodes.generated"
 import * as terminal from "./terminal"
+import { sleep } from "./builtins/utils"
 
 export interface Size2D {
     width: number
@@ -71,7 +72,7 @@ export async function runProgramm(
         case "Run":
             {
                 const { path, exitOnHalt } = args.arguments as Action["Run"]
-                return await run(file, handle, exitOnHalt, manuallyStep)
+                return run(file, handle, exitOnHalt, manuallyStep)
             }
             break
         case "Emit":
@@ -353,7 +354,20 @@ export async function run(
             }
 
             for (let i = 0; i < numCycles; ++i) {
+                const instructionAddress =
+                    machine.processor.getInstructionPointer()
+                const opCode = machine.memory.readOpcode(instructionAddress)
+
+                console.log(
+                    `Now executing opCode:`,
+                    opCode,
+                    machine.processor.registers.get(
+                        machine.processor.STACK_POINTER
+                    ),
+                    Instruction.toHexString(opCode.asInstruction())
+                )
                 executeNextInstruction(machine)
+                await sleep(10)
             }
         } else {
             await new Promise((resolve) => {
@@ -375,6 +389,8 @@ export async function run(
             })
         }
     }
+
+    console.error("finished running the program")
 }
 
 function loadRom(machine: Machine, file: PseudoFile): void {

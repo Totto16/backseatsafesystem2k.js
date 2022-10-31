@@ -1,7 +1,9 @@
 import * as display from "./display"
 import { runProgramm } from "./main"
 import * as Byte from "./builtins/Byte"
+import * as Instruction from "./builtins/Instruction"
 import { DrawHandle } from "./terminal"
+import { OpCode } from "./opcodes.generated"
 
 function getDrawHandle(uninitialized = false): DrawHandle {
     return [0, 1].map((_, index) => {
@@ -29,6 +31,32 @@ function start() {
     }
 
     inputElement.onchange = onChooseFile
+}
+
+function generateUI(array: Uint8ClampedArray, contentElement: HTMLElement) {
+    console.log("generating UI")
+    const byteArray = [...array]
+        .map((byte) => Byte.toHexString([byte], true, true, false))
+        .join("")
+
+    const readableByteCode: Array<[OpCode, Instruction.InstructionBytes]> =
+        Instruction.chunkString(byteArray, Instruction.SIZE * 2).map((byte) => {
+            const inst = Instruction.fromHexString(byte)
+            const opcode = OpCode.fromInstruction(inst)
+            return [opcode, Instruction.toBEBytes(inst)]
+        })
+
+    contentElement.innerHTML = `<div class="inst-container" display="grid>${readableByteCode.map(
+        ([opCode, bytes]) => {
+            const code = bytes.map((byte) =>
+                Byte.toHexString([byte], true, true, false)
+            )
+
+            return `<div class="outer-inst" display="flex" onclick="console.log('${opCode.name}')">${code.join(" ")}</div>`
+        }
+    ).join("")}</div>`
+
+    console.log("generated UI successfully!")
 }
 
 function onChooseFile(_event: Event) {
@@ -67,11 +95,27 @@ function onChooseFile(_event: Event) {
 
             const array = new Uint8ClampedArray(content)
 
-            contentElement.innerText = [...array]
-                .map((a) => Byte.toHexString([a]))
-                .join(" ")
+            if (array.byteLength % Instruction.SIZE) {
+                throw new Error(
+                    `The file doesn't seem to have a valid length to fit instructions in: ${array.byteLength} % ${Instruction.SIZE} != 0`
+                )
+            }
+
+            generateUI(array, contentElement)
 
             // TODO make buttons and checkboxes to manipulate the args, run , emit, json and the option like exit on halt
+
+            const enableStepping = document.querySelector<HTMLInputElement>(
+                'input#enable-stepping[type="checkbox"]'
+            )
+
+            const manuallyStep =
+                enableStepping && enableStepping.checked
+                    ? document.querySelector<HTMLButtonElement>(
+                          "button#nextButton"
+                      ) ?? undefined
+                    : undefined
+
             runProgramm(
                 getDrawHandle(true),
                 {
@@ -82,9 +126,7 @@ function onChooseFile(_event: Event) {
                     action: "Run",
                     arguments: { path: file.name, exitOnHalt: true },
                 },
-                document.querySelector<HTMLButtonElement>(
-                    "button#nextButton"
-                ) ?? undefined
+                manuallyStep
             )
         })
         .then(() => console.log("finished running the program"))

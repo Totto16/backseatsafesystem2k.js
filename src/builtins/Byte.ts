@@ -47,7 +47,8 @@ export function isByte(number: Word.Word) {
 export function toHexString(
     values: Byte[],
     includeLeadingNullBytes = false,
-    singleBytePad = includeLeadingNullBytes
+    singleBytePad = includeLeadingNullBytes,
+    includePrefix = true
 ): string {
     let bytes = values
     if (!includeLeadingNullBytes) {
@@ -60,7 +61,7 @@ export function toHexString(
     if (bytes.length === 0) {
         bytes.push(0)
     }
-    return `0x${bytes
+    return `${includePrefix ? "0x" : ""}${bytes
         .map((byte, index) =>
             byte
                 .toString(16)

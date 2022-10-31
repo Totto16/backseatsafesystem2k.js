@@ -14,7 +14,7 @@ export type Word = u32
 
 export const bits = Byte.bits * SIZE
 
-export const MAX = ((1 << bits) >>> 0) - 1
+export const MAX = Math.pow(2, 32) - 1
 
 export function fromBEBytes(array: Uint8ClampedArray): Word {
     return unpack(
@@ -65,6 +65,25 @@ export function isWord(number: Word | Instruction.Instruction) {
     }
 }
 
+export type OrArray<T> = T | T[]
+
+export function assertIsWord(
+    number: OrArray<Word | Instruction.Instruction>
+): void {
+    if (Array.isArray(number)) {
+        return number.forEach(assertIsWord)
+    }
+    assert(
+        isWord(number),
+        true,
+        `Expected value to be word, but was: ${
+            typeof number === "bigint"
+                ? Instruction.toBEBytes(number)
+                : Byte.toHexString(toBEBytes(number))
+        }`
+    )
+}
+
 export interface CalculationWithOverflow<T extends number | BigInt = Word> {
     result: T
     didOverflow: boolean
@@ -89,7 +108,7 @@ export function overflowingAdd(
     processor: Processor,
     withCarry?: boolean
 ): CalculationWithOverflow {
-    assert(isWord(lhs) && isWord(rhs))
+    assertIsWord([lhs, rhs])
 
     const carryBit = withCarry ? (processor?.getFlag("Carry") ? 1 : 0) : 0
     let result = lhs + rhs + carryBit
@@ -97,8 +116,8 @@ export function overflowingAdd(
 
     if (!isWord(result)) {
         didOverflow = true
-        result = result % ((1 << bits) >>> 0)
-        assert(isWord(result))
+        result = result % (MAX + 1)
+        assertIsWord(result)
     }
 
     setFlags({ didOverflow, result }, processor)
@@ -112,15 +131,15 @@ export function overflowingSub(
     processor: Processor,
     withCarry?: boolean
 ): CalculationWithOverflow {
-    assert(isWord(lhs) && isWord(rhs))
+    assertIsWord([lhs, rhs])
     const carryBit = withCarry ? (processor?.getFlag("Carry") ? 1 : 0) : 0
     let result = lhs - rhs - carryBit
     let didOverflow = false
 
     if (!isWord(result)) {
         didOverflow = true
-        result = ((1 << bits) >>> 0) + (result % ((1 << bits) >>> 0))
-        assert(isWord(result))
+        result = MAX + 1 + (result % (MAX + 1))
+        assertIsWord(result)
     }
 
     setFlags({ didOverflow, result }, processor)
@@ -133,7 +152,7 @@ export function overflowingMul(
     rhs: Word,
     processor: Processor
 ): CalculationWithOverflow<u64> {
-    assert(isWord(lhs) && isWord(rhs))
+    assertIsWord([lhs, rhs])
 
     let result = BigInt(lhs) * BigInt(rhs)
     let didOverflow = false
@@ -159,7 +178,7 @@ export function overflowingLeftShift(
     rhs: Word,
     processor: Processor
 ): CalculationWithOverflow {
-    assert(isWord(lhs) && isWord(rhs))
+    assertIsWord([lhs, rhs])
 
     let temp = rhs > bits ? 0n : BigInt(lhs) << BigInt(rhs)
     let didOverflow = false
@@ -167,7 +186,7 @@ export function overflowingLeftShift(
     if (!isWord(temp)) {
         didOverflow = true
         temp = temp % (1n << BigInt(bits))
-        assert(isWord(temp))
+        assertIsWord(temp)
     }
     const [zero, result] = Instruction.asWords(temp)
     assert(zero === 0)
@@ -188,7 +207,7 @@ export function overflowingRightShift(
     rhs: Word,
     processor: Processor
 ): CalculationWithOverflow {
-    assert(isWord(lhs) && isWord(rhs))
+    assertIsWord([lhs, rhs])
 
     let result = rhs > bits ? 0 : lhs >> rhs
     let didOverflow = false
@@ -196,7 +215,7 @@ export function overflowingRightShift(
     if (!isWord(result)) {
         didOverflow = true
         result = result % (1 << bits)
-        assert(isWord(result))
+        assertIsWord(result)
     }
 
     // TODO investigate this condition:
@@ -211,5 +230,5 @@ export function overflowingRightShift(
 }
 
 export function toWord(input: Word) {
-    return Byte.clamp(input, 0, (1 << bits) - 1)
+    return Byte.clamp(input, 0, MAX)
 }

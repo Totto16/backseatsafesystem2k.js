@@ -53,7 +53,7 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         if (value === undefined) {
             throw new Error(
                 `Instruction ${Instruction.toHexString(
-                    value
+                    instruction
                 )} with OpCode ${Byte.toHexString([
                     code,
                 ])} = ${code} is not a valid OPCode`

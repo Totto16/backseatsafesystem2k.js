@@ -45,3 +45,7 @@ export function assert<T = any, S = T>(
         throw new Error(actualMessage)
     }
 }
+
+export async function sleep(ms: number): Promise<void> {
+    return await new Promise((resolve) => setTimeout(resolve, ms))
+}

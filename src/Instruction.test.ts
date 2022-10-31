@@ -29,7 +29,7 @@ function chunkString(str: string, length: number): string[] {
 function instructionFromHexString<T>(value: string): u64 {
     expect(value.substring(0, 2)).toBe("0x")
     expect(value.length).toBe(Instruction.SIZE * 2 + 2)
-    const [, ...array]: string[] = chunkString(value, 2)
+    const [,...array]: string[] = chunkString(value, 2)
     const values: number[] = array.map((num) => {
         const parsedNum = parseInt(num, 16)
         expect(parsedNum).not.toBeNaN()
