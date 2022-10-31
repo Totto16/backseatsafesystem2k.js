@@ -50,10 +50,6 @@ function start() {
 }
 
 function generateUI(array: Uint8ClampedArray, contentElement: HTMLElement) {
-    const hoverOverElement = (element: HTMLElement, opCode: OpCode) => {
-        console.log(opCode)
-    }
-
     const byteArray = [...array]
         .map((byte) => Byte.toHexString([byte], true, true, false))
         .join("")
@@ -103,27 +99,29 @@ function generateUI(array: Uint8ClampedArray, contentElement: HTMLElement) {
         const code: string[] = []
 
         let i = 0
-        for (const [name, value, byteLength] of info) {
+        for (const [name, value, type, byteLength] of info) {
             const bytes = instBytes.slice(i, i + byteLength)
 
             code.push(
-                `<div class="inner-inst" attr-name="${name}" attr-value="${value.toString()}">${bytes
+                `<div class="inner-inst" type="${type}">${bytes
                     .map((byte) => Byte.toHexString([byte], true, true, false))
-                    .join(" ")}</div>`
+                    .join(
+                        " "
+                    )}<span class="tooltip">${name}: ${value.toString()}</span></div>`
             )
             i += byteLength
         }
 
         if (i != Instruction.SIZE) {
             code.push(
-                `<div class="inner-inst">${instBytes
+                `<div class="inner-inst" type="nothing">${instBytes
                     .slice(i)
                     .map((byte) => Byte.toHexString([byte], true, true, false))
-                    .join(" ")}</div>`
+                    .join(" ")}<span class="tooltip">not used</span></div>`
             )
         }
 
-        const hoverChild = document.createElement("div")
+        /*      const hoverChild = document.createElement("div")
         hoverChild.className = "hover-inst"
 
         const hoverName = document.createElement("div")
@@ -143,15 +141,15 @@ function generateUI(array: Uint8ClampedArray, contentElement: HTMLElement) {
             singleEl.innerHTML = `<span>${key}: ${value}</span>`
 
             hoverChild.appendChild(singleEl)
-        }
+        } */
 
-        singleInst.onmouseenter = () => {
+        /*         singleInst.onmouseenter = () => {
             singleInst.appendChild(hoverChild)
         }
 
         singleInst.onmouseleave = () => {
             singleInst.removeChild(hoverChild)
-        }
+        } */
 
         singleInst.innerHTML = code.join(" ")
 

@@ -1,10 +1,19 @@
+:root {
+    --color-inst-opcode: blue;
+    --color-inst-register: rgb(10, 253, 31);
+    --color-inst-immediate: yellow;
+    --color-inst-nothing: lightgray;
+
+    --tooltip-width: 120px;
+}
+
 .inst-container {
     grid-template-columns: 10% 90%;
     display: grid;
     justify-content: center;
     justify-items: stretch;
     align-content: center;
-    align-items: center;
+    align-items: start;
 }
 
 .inst-addresses {
@@ -29,16 +38,18 @@
 
 .outer-inst {
     background-color: grey;
-    padding: 10px;
     margin: 10px;
     display: flex;
-    gap: 10px;
+    gap: 8px;
+    justify-content: center;
+    justify-self: normal;
 }
 
 .address-lines {
     background-color: rgb(85, 85, 85);
     padding: 10px;
     margin: 10px;
+    text-align: center;
     color: white;
 }
 
@@ -69,4 +80,44 @@
 
 .rom-list > li {
     cursor: pointer;
+}
+
+.inner-inst {
+    position: relative;
+    padding: 5px;
+}
+
+.inner-inst .tooltip {
+    visibility: hidden;
+    width: var(--tooltip-width);
+    background-color: black;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px 0;
+
+    position: absolute;
+    z-index: 1;
+    bottom: 100%;
+    left: calc(50% - calc(var(--tooltip-width) / 2));
+}
+
+.inner-inst:hover .tooltip {
+    visibility: visible;
+}
+
+.inner-inst:hover[type="opcode"] {
+    background-color: var(--color-inst-opcode);
+}
+
+.inner-inst:hover[type="register"] {
+    background-color: var(--color-inst-register);
+}
+
+.inner-inst:hover[type="immediate"] {
+    background-color: var(--color-inst-immediate);
+}
+
+.inner-inst:hover[type="nothing"] {
+    background-color: var(--color-inst-nothing);
 }

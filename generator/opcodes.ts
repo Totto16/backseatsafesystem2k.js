@@ -64,7 +64,7 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
     }
 
     parseInstruction(instruction: Instruction.Instruction): ParserResult<T> {
-        const name : T = OpCode.getNameByInstruction<T>(instruction)
+        const name: T = OpCode.getNameByInstruction<T>(instruction)
 
         const { opCode, cycles, registers, rest, increment } = opDefinitions[
             name
@@ -112,7 +112,9 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
         return this.instruction
     }
 
-    static fromInstruction<T extends OpCodeNames = OpCodeNames>(instruction: Instruction.Instruction): OpCode<T> {
+    static fromInstruction<T extends OpCodeNames = OpCodeNames>(
+        instruction: Instruction.Instruction
+    ): OpCode<T> {
         return new OpCode<T>(instruction)
     }
 
@@ -123,7 +125,47 @@ export class OpCode<T extends OpCodeNames = OpCodeNames> {
     shouldIncrementInstructionPointer(): boolean {
         return this.parsedInstruction.increment
     }
+
+    getDescription(): Description[] {
+        const result: Description[] = []
+
+        result.push([
+            "opCode",
+            this.parsedInstruction.opCode,
+            "opcode",
+            HalfWord.SIZE,
+        ])
+
+        const { opCode, cycles, registers, rest, increment } = opDefinitions[
+            this.name
+        ] as typeof opDefinitions[T] & { rest?: string }
+
+        const [, , ...bytes] = Instruction.toBEBytes(this.instruction)
+
+        ;(registers as ParsedRegister<T>[keyof ParsedRegister<T>][]).map(
+            (name, index) => {
+                result.push([
+                    name.toString(),
+                    bytes[index],
+                    "register",
+                    Byte.SIZE,
+                ])
+            }
+        )
+
+        const [, word] = Instruction.asWords(this.instruction)
+        if (rest !== undefined) {
+            result.push([rest, word, "immediate", Word.SIZE])
+        }
+
+        return result
+    }
 }
+
+export type ValueType = "opcode" | "register" | "immediate" | "nothing"
+
+// name, value, type, byteLength
+export type Description = [string, string | number, ValueType, number]
 
 export type OpMap<T extends OpCodeNames = OpCodeNames> = {
     [key in OPCodeDefinitions[T]["opCode"]]: T
