@@ -354,20 +354,7 @@ export async function run(
             }
 
             for (let i = 0; i < numCycles; ++i) {
-                const instructionAddress =
-                    machine.processor.getInstructionPointer()
-                const opCode = machine.memory.readOpcode(instructionAddress)
-
-                console.log(
-                    `Now executing opCode:`,
-                    opCode,
-                    machine.processor.registers.get(
-                        machine.processor.STACK_POINTER
-                    ),
-                    Instruction.toHexString(opCode.asInstruction())
-                )
                 executeNextInstruction(machine)
-                await sleep(10)
             }
         } else {
             await new Promise((resolve) => {
@@ -375,18 +362,6 @@ export async function run(
                     elements: HTMLDivElement[],
                     activeElement: HTMLDivElement | null
                 ): number => {
-                    const instructionAddress =
-                        machine.processor.getInstructionPointer()
-                    const opCode = machine.memory.readOpcode(instructionAddress)
-
-                    console.log(
-                        `Now executing opCode:`,
-                        opCode,
-                        machine.processor.registers.get(
-                            machine.processor.STACK_POINTER
-                        ),
-                        Instruction.toHexString(opCode.asInstruction())
-                    )
                     executeNextInstruction(machine)
                     return machine.processor.getInstructionPointer()
                 }
@@ -455,9 +430,11 @@ function renderIfNeeded(
     handle: DrawHandle,
     machine: Machine
 ) {
+    console.log("renderIfNeeded")
     if (currentTime >= timeMeasurements.nextRenderTime) {
         timeMeasurements.nextRenderTime += 1000n / BigInt(TARGET_FPS)
 
+        console.log("it is needed")
         render(handle, machine)
 
         let currentCycleCount = machine.processor.getCycleCount()
@@ -476,6 +453,8 @@ function renderIfNeeded(
 
 function render(handle: DrawHandle, machine: Machine) {
     const ctx = machine.periphery.display.getCurrentCtx(handle)
+
+    console.log(ctx, "canvas in render", machine.periphery.display)
     ctx.fillStyle = "black"
     ctx.fillRect(0, 0, terminal.WIDTH, terminal.HEIGHT)
 

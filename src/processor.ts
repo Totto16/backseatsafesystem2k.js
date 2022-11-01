@@ -674,7 +674,7 @@ export class Processor {
                 ): ExecutionResult {
                     if (processor.exitOnHalt) {
                         // TODO implement a "exit" in the browser, like a blank canvas, remove canvas or similar
-                        throw new Error("exit(0)")
+                        throw new Error("HaltAndCatchFire")
                     }
                     handleCycleCountAndInstructionPointer(processor)
                     return ExecutionResult.Halted
