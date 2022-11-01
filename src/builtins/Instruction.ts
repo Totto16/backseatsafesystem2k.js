@@ -1,8 +1,8 @@
-import * as Byte from "./Byte"
-import * as Word from "./Word"
-import * as HalfWord from "./HalfWord"
 import { Address } from "../address_constants"
+import * as Byte from "./Byte"
+import * as HalfWord from "./HalfWord"
 import { u64 } from "./types"
+import * as Word from "./Word"
 
 export const SIZE = 8
 

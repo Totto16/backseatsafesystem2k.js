@@ -1,9 +1,7 @@
 // featuring Tom Hanks
 
 import {
-    TERMINAL_CURSOR_POINTER,
-    Address,
-    TERMINAL_BUFFER_START,
+    TERMINAL_BUFFER_START, TERMINAL_CURSOR_POINTER
 } from "./address_constants"
 import { Cursor } from "./cursor"
 import { Display } from "./display"

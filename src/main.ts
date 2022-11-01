@@ -1,20 +1,18 @@
 import { PseudoFile, RunOptions } from "."
 import { Address, ENTRY_POINT } from "./address_constants"
-import { Cursor } from "./cursor"
-import { Display } from "./display"
-import { Keyboard } from "./keyboard"
-import { CachedInstruction, Machine } from "./machine"
-import { Memory } from "./memory"
-import { Periphery } from "./periphery"
-import { Processor, Register, Registers } from "./processor"
-import { DrawHandle } from "./terminal"
-import { Timer } from "./timer"
-import * as Word from "./builtins/Word"
 import * as Instruction from "./builtins/Instruction"
 import { u64 } from "./builtins/types"
+import * as Word from "./builtins/Word"
+import { Cursor } from "./cursor"
+import * as display from "./display"
+import { Keyboard } from "./keyboard"
+import { Machine } from "./machine"
+import { Memory } from "./memory"
 import { OpCode } from "./opcodes.generated"
-import * as terminal from "./terminal"
-import { sleep } from "./builtins/utils"
+import { Periphery } from "./periphery"
+import { Register } from "./processor"
+import { DrawHandle } from "./terminal"
+import { Timer } from "./timer"
 
 export interface Size2D {
     width: number
@@ -301,7 +299,7 @@ export async function run(
     const periphery = new Periphery(
         timer,
         new Keyboard(listenDiv),
-        new Display(handle),
+        new display.Display(handle),
         new Cursor(true, new Date().getTime() + Cursor.TOGGLE_INTERVAL)
     )
 
@@ -456,8 +454,8 @@ function render(handle: DrawHandle, machine: Machine) {
 
     console.log(ctx, "canvas in render", machine.periphery.display)
     ctx.fillStyle = "black"
-    ctx.fillRect(0, 0, terminal.WIDTH, terminal.HEIGHT)
-
+    ctx.fillRect(0, 0, display.WIDTH, display.HEIGHT)
+    throw new Error("debug")
     machine.render(handle)
     // TODO implement fps display
 

@@ -1,4 +1,4 @@
-import { unpack, packTo } from "byte-data"
+import { packTo, unpack } from "byte-data"
 import { Address } from "../address_constants"
 import { u8 } from "./types"
 import * as Word from "./Word"

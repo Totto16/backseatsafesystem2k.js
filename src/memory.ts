@@ -1,11 +1,11 @@
 import * as Byte from "./builtins/Byte"
-import * as Word from "./builtins/Word"
 import * as HalfWord from "./builtins/HalfWord"
 import * as Instruction from "./builtins/Instruction"
+import * as Word from "./builtins/Word"
 
 import { Address } from "./address_constants"
-import { OpCode } from "./opcodes.generated"
 import { assert } from "./builtins/utils"
+import { OpCode } from "./opcodes.generated"
 
 export type Tuple<A, B> = [A, B]
 

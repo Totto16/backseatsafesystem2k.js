@@ -1,8 +1,8 @@
 //use crate::{display, terminal, Address, Byte, Size, Word};
 import * as Byte from "./builtins/Byte"
 import * as Word from "./builtins/Word"
-import * as terminal from "./terminal"
 import * as display from "./display"
+import * as terminal from "./terminal"
 
 export const TERMINAL_BUFFER_START: Address = 0
 export const TERMINAL_BUFFER_SIZE: number =

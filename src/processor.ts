@@ -1,20 +1,17 @@
-import * as Word from "./builtins/Word"
-import * as HalfWord from "./builtins/HalfWord"
 import {
-    STACK_START,
-    ENTRY_POINT,
-    Address,
-    STACK_SIZE,
+    Address, ENTRY_POINT, STACK_SIZE, STACK_START
 } from "./address_constants"
-import { u32, u64 } from "./builtins/types"
-import { Memory } from "./memory"
-import * as Instruction from "./builtins/Instruction"
-import { InstructionCache, CachedInstruction, Machine } from "./machine"
-import { OpCode } from "./opcodes.generated"
 import * as Byte from "./builtins/Byte"
-import { KeyState } from "./keyboard"
-import { Periphery } from "./periphery"
+import * as HalfWord from "./builtins/HalfWord"
+import * as Instruction from "./builtins/Instruction"
+import { u64 } from "./builtins/types"
 import { assert } from "./builtins/utils"
+import * as Word from "./builtins/Word"
+import { KeyState } from "./keyboard"
+import { CachedInstruction, Machine } from "./machine"
+import { Memory } from "./memory"
+import { OpCode } from "./opcodes.generated"
+import { Periphery } from "./periphery"
 
 export const NUM_REGISTERS = 256
 

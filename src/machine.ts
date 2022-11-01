@@ -1,12 +1,11 @@
+import { ENTRY_POINT, TERMINAL_CURSOR_MODE } from "./address_constants"
 import * as Instruction from "./builtins/Instruction"
-import { CursorMode } from "./cursor"
+import { assert } from "./builtins/utils"
+import { Cursor, CursorMode } from "./cursor"
 import { Memory } from "./memory"
 import { Periphery } from "./periphery"
 import { ExecutionResult, Processor } from "./processor"
-import { TERMINAL_CURSOR_MODE, ENTRY_POINT } from "./address_constants"
-import { Cursor } from "./cursor"
 import { DrawHandle, render as terminalRender } from "./terminal"
-import { assert } from "./builtins/utils"
 
 export type CachedInstruction = (
     processor: Processor,

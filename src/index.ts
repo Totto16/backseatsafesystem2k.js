@@ -1,10 +1,10 @@
-import * as display from "./display"
-import { runProgramm } from "./main"
+import { ENTRY_POINT } from "./address_constants"
 import * as Byte from "./builtins/Byte"
 import * as Instruction from "./builtins/Instruction"
-import { DrawHandle } from "./terminal"
+import * as display from "./display"
+import { runProgramm } from "./main"
 import { OpCode } from "./opcodes.generated"
-import { ENTRY_POINT } from "./address_constants"
+import { DrawHandle } from "./terminal"
 
 function getDrawHandle(uninitialized = false): DrawHandle {
     return [0, 1].map((_, index) => {

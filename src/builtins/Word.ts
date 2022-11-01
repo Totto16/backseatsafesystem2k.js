@@ -1,10 +1,10 @@
+import { packTo, unpack } from "byte-data"
+import { Address } from "../address_constants"
+import { Processor } from "../processor"
 import * as Byte from "./Byte"
 import * as HalfWord from "./HalfWord"
-import { unpack, packTo } from "byte-data"
-import { Address } from "../address_constants"
-import { u32, u64 } from "./types"
-import { Processor } from "../processor"
 import * as Instruction from "./Instruction"
+import { u32, u64 } from "./types"
 
 import { assert } from "./utils"
 

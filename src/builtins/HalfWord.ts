@@ -1,6 +1,6 @@
-import * as Byte from "./Byte"
-import { unpack, packTo } from "byte-data"
+import { packTo, unpack } from "byte-data"
 import { Address } from "../address_constants"
+import * as Byte from "./Byte"
 import { u16 } from "./types"
 import * as Word from "./Word"
 

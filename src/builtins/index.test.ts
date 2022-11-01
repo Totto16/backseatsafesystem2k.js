@@ -1,7 +1,7 @@
 import * as Byte from "./Byte"
 import * as HalfWord from "./HalfWord"
-import * as Word from "./Word"
 import * as Instruction from "./Instruction"
+import * as Word from "./Word"
 
 function arrayEquals(arr1: Uint8ClampedArray, arr2: Uint8ClampedArray) {
     expect(arr1.length).toStrictEqual(arr2.length)

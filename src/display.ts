@@ -2,10 +2,8 @@ export const WIDTH: number = 480
 export const HEIGHT: number = (WIDTH / 4) * 3
 
 import {
-    SECOND_FRAMEBUFFER_START,
-    FIRST_FRAMEBUFFER_START,
-    FRAMEBUFFER_SIZE,
-    Address,
+    Address, FIRST_FRAMEBUFFER_START,
+    FRAMEBUFFER_SIZE, SECOND_FRAMEBUFFER_START
 } from "./address_constants"
 import { SCREEN_SIZE } from "./main"
 import { Memory } from "./memory"
